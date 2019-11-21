@@ -1,0 +1,154 @@
+# -*- coding:utf-8 -*-
+from flask import Flask, render_template, request, flash
+import json
+
+app = Flask(__name__)
+app.secret_key = 'lisenzzz'
+
+
+@app.route('/')
+def hello_world():
+    return render_template('index.html')
+
+
+# 选择单个影响力最大的种子基于ic模型（每个节点模拟一次）
+@app.route('/basicIc1')
+def basic_ic_1():
+    # file = open('static/data/test.txt', 'r')
+    # graph_data = file.read()
+    # file.close()
+    import random
+    import json
+    # 读取数据
+    networkTemp = []
+    networkFile = open('static/data/Wiki.txt', 'r')
+    # 设置节点数
+    number_of_nodes = 105
+
+    for line in networkFile.readlines():
+        linePiece = line.split()
+        networkTemp.append([int(linePiece[0]), int(linePiece[1])])
+    # 初始化权重矩阵
+    networkWeight = []
+    for i in range(3):
+        networkWeight.append([])
+        for j in range(number_of_nodes):
+            networkWeight[i].append([])
+            for k in range(number_of_nodes):
+                networkWeight[i][j].append(0)
+    # 设置权重
+    # 边的权重有三种设置方式，一种是从[0.1, 0.01, 0.001]中随机选一个，一种是都固定0.1，一种是节点的入度分之一
+    probability_list = [0.1, 0.01, 0.001]
+    for linePiece in networkTemp:
+        networkWeight[0][linePiece[0] - 1][linePiece[1] - 1] = random.choice(probability_list)
+        networkWeight[1][linePiece[0] - 1][linePiece[1] - 1] = 0.1
+    for node in range(number_of_nodes):
+        degree = 0
+        for iteration in range(number_of_nodes):
+            if iteration != node:
+                if networkWeight[1][iteration][node]:
+                    degree = degree + 1
+        for iteration in range(number_of_nodes):
+            if iteration != node:
+                if networkWeight[1][iteration][node]:
+                    networkWeight[2][iteration][node] = 1 / degree
+    networkFile.close()
+    # 设置传给前端的节点数据边数据的json串
+    graph_data_json = {}
+    nodes_data_json = []
+    for node in range(number_of_nodes):
+        nodes_data_json.append({})
+        nodes_data_json[node]['attributes'] = {}
+        nodes_data_json[node]['attributes']['modularity_class'] = 0
+        nodes_data_json[node]['id'] = str(node)
+        nodes_data_json[node]['category'] = 0
+        nodes_data_json[node]['itemStyle'] = ''
+        nodes_data_json[node]['label'] = {}
+        nodes_data_json[node]['label']['normal'] = {}
+        nodes_data_json[node]['label']['normal']['show'] = 'false'
+        nodes_data_json[node]['name'] = str(node)
+        nodes_data_json[node]['symbolSize'] = 35
+        nodes_data_json[node]['value'] = 15
+        nodes_data_json[node]['x'] = 0
+        nodes_data_json[node]['y'] = 0
+    links_data_json = []
+    for link in networkTemp:
+        links_data_json.append({})
+        links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
+        links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
+        links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
+        links_data_json[len(links_data_json) - 1]['name'] = 'null'
+        links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
+        links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
+    graph_data_json['nodes'] = nodes_data_json
+    graph_data_json['links'] = links_data_json
+    graph_data = json.dumps(graph_data_json)
+
+    # 计算一个节点集合在单次模拟下的影响力
+    def set_influence(node_set, method):
+        active_nodes = []  # 存放所有被激活的节点
+        # 把要计算的集合中的节点放入刚才定义的数组中
+        for initial_node in node_set:
+            active_nodes.append(initial_node)
+        last_length = 0  # 这个值用来判断两次迭代之间active_nodes的数量有没有变化，如果没有变化说明没有新的节点被激活就结束迭代
+        while len(active_nodes) != last_length:
+            if last_length == 0:
+                new_active_nodes = []  # 新激活的节点是ic模型中每次迭代中需要去激活别人的节点
+                for initial_node in active_nodes:  # 如果是第一次那么输入集合的节点就都是新激活节点
+                    new_active_nodes.append(initial_node)
+            last_length = len(active_nodes)
+            temp_active_nodes = []  # used to temporary storage for each iteration's new active nodes
+            for new_active_node in new_active_nodes:
+                for node in range(number_of_nodes):
+                    if networkWeight[method][new_active_node][node] and node not in active_nodes:
+                        # 生产随机数与边权重判断是否激活
+                        if random.random() < networkWeight[method][new_active_node][node]:
+                            active_nodes.append(node)
+                            temp_active_nodes.append(node)
+            new_active_nodes = []
+            for node in temp_active_nodes:  # 把缓存中的节点放入当前步的新激活节点也就是下一步中要去激活别人的节点
+                new_active_nodes.append(node)
+        return active_nodes
+
+    # 执行贪心算法找影响力最大的节点
+    active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
+    max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
+    for node in range(number_of_nodes):
+        active_records.append([])
+        active_records[node] = set_influence([node], 1)  # 把这个节点的模拟结果存起来
+        influence = len(active_records[node])
+        if influence > max_node_influence:
+            max_node_influence = influence
+            max_influence_node = node
+    active_records = json.dumps(active_records)
+    # 把你需要的数据给对应的页面
+    return render_template('basic_ic_1.html', graph_data=graph_data, active_records=active_records, max_node_influence=
+    max_node_influence, max_influence_node=max_influence_node)
+
+
+# 选择单个影响力最大的种子基于ic模型（每个节点模拟十次）
+@app.route('/basicIc10')
+def basic_ic_10():
+    return ''
+
+
+# 选择单个影响力最大的种子基于lt模型（每个节点模拟一次）
+@app.route('/basicLt1')
+def basic_lt_1():
+    return ''
+
+
+# 选择单个影响力最大的种子基于page rank
+@app.route('/pageRank')
+def page_rank():
+    return ''
+
+
+# 选择单个影响力最大的种子基于节点的度
+@app.route('/degree')
+def degree():
+    return ''
+
+
+if __name__ == '__main__':
+    app.run()
