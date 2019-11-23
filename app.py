@@ -131,7 +131,6 @@ def basic_ic_1():
 def basic_ic_10():
     return ''
 
-app.debug=True
 # 选择单个影响力最大的种子基于lt模型（每个节点模拟一次）
 @app.route('/basicLt1')  # 王钊
 def basic_lt_1():
