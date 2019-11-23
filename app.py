@@ -264,7 +264,7 @@ def page_rank():
 
 
 # 选择单个影响力最大的种子基于节点的度
-@app.route('/degree')
+@app.route('/degree')#刘艳霞
 def degree():
     return ''
 
