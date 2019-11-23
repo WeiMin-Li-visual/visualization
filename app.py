@@ -128,7 +128,7 @@ def basic_ic_1():
 
 # 选择单个影响力最大的种子基于ic模型（每个节点模拟十次）
 @app.route('/basicIc10')
-def basic_ic_10():
+def basic_ic_10():#胡莎莎
     return ''
 
 # 选择单个影响力最大的种子基于lt模型（每个节点模拟一次）
