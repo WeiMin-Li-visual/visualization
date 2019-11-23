@@ -215,11 +215,11 @@ def basic_lt_1():
 
     def set_influence_LT(node_set, m):
         """
-                基于LT模型计算node_set集合的影响力
-                :param node_set: 节点集合
-                :param m: 设置使用的权重矩阵
-                :return: 返回被激活的节点集合
-                """
+        基于LT模型计算node_set集合的影响力
+        :param node_set: 节点集合
+        :param m: 设置使用的权重矩阵
+        :return: 返回被激活的节点集合
+        """
         active_nodes = node_set  # 存放被激活的节点，初始为node_set
         last_influence = 0  # 存放最新的节点影响力，如果值为0就说明影响力传播结束
         start = last_influence
