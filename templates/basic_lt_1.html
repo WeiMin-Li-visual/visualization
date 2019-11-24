@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+    <meta charset="utf-8">
+</head>
+<body style="height: 100%; margin: 0">
+<div id="container" style="height: 100%"></div>
+<script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript">
+   var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);//创建echarts实例，dom为实例容器，一般是一个具有高宽的div元素。
+    var app = {};
+    var active_records = {{ active_records | tojson }};
+    active_records = JSON.parse(active_records);
+    option = null;
+    var graph = {{ graph_data | tojson }}//获取后端返回的图数据,tojson 将变量输出为字符串
+        graph = JSON.parse(graph)//转成javascript 对象
+    //console.log(graph)
+    //设置节点的种类
+    var categories = [];
+    categories[0] = {
+        name: '未激活节点',
+        itemStyle: {
+            color: '#2f4554'
+        }
+    }
+    categories[1] = {
+        name: '激活节点',
+        itemStyle: {
+            color: {//设置节点颜色
+                type: 'linear',//线性渐变
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                    offset: 0, color: 'yellow'
+                }, {
+                    offset: 1, color: 'blue'
+                }]
+            }
+        }
+    };
+    //给节点的属性进行操作
+    graph.nodes.forEach(function (node) {//forEach对每个节点进行设置
+        node.itemStyle = null;
+        node.symbolSize = 15;//节点标记大小
+        node.value = node.symbolSize;
+        node.category = node.attributes.modularity_class;//指定节点所在的类目
+        // Use random x, y
+        node.x = Math.random() % myChart.getWidth();
+        node.y = Math.random() % myChart.getHeight();
+        node.draggable = true;//是否可以被拖拽
+    });
+    //设置要生成的图的相关属性
+    option = {
+        title: {
+             text: '节点'+0+"的激活过程",
+             subtext: "当前节点的影响力为"+active_records[0].length,
+        },
+        tooltip: {},
+        legend: [{
+            // selectedMode: 'single',
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }],
+        animationDuration: 1500,  //初始动画的时长，支持回调函数，可以通过每个数据返回不同的 delay 时间实现更戏剧的初始动画效果：
+        animationEasingUpdate: 'quinticInOut', //数据更新动画的缓动效果。
+        series: [
+            {
+                name: 'Les Miserables',
+                type: 'graph', //关系图
+                layout: 'none',
+                //下面三项分别设置节点数据，边数据，种类数据
+                data: graph.nodes,
+                links: graph.links,
+                categories: categories,
+                roam: true,//是否开启鼠标缩放和平移漫游。默认不开启。
+                animation: false,//是否开启动画
+                focusNodeAdjacency: true,//是否在鼠标移到节点上的时候突出显示节点以及节点的边和邻接节点。
+                itemStyle: {//图形样式
+                    normal: {//normal？？？？
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    }
+                },
+                label: {
+                    position: 'right',
+                    formatter: '{b}'
+                },
+                lineStyle: {//边的样式
+                    color: 'source',
+                    curveness: 0.3//边的曲度
+                },
+                emphasis: {
+                    lineStyle: {
+                        width: 10
+                    }
+                },
+                force: {
+                    repulsion: 270
+                }
+            }
+        ]
+    };
+    myChart.setOption(option);
+    var max_influence_node={{max_influence_node}};
+    var max_node_influence={{max_node_influence}};
+    var node_no = 0;//用来记录当前显示的节点
+    var record_node_no = 0;//记录当前被激活的节点数
+     interval_no = setInterval(function () {
+         if(node_no==active_records.length)//所有节点显示完毕后，显示影响力最大的节点
+            {
+                graph.nodes[max_influence_node].category=1;
+                graph.nodes[max_influence_node].symbolSize=30;
+                active_records[max_influence_node].forEach(function(node){
+                    graph.nodes[node].category=1;
+                    graph.nodes[node].symbolSize=30;
+               })
+                myChart.setOption({
+                      title: {
+                        text: "影响力最大的节点为："+max_influence_node,
+                        subtext: "影响力为"+max_node_influence,
+                      },
+                      series:[{
+                        data:graph.nodes,
+                        links:graph.links
+                      }]
+                })
+                clearInterval(interval_no);// 跳出setInterval，结束循环
+            }
+         if(record_node_no==0)
+            {
+                myChart.setOption({
+                    title: {
+                    text: '节点'+node_no+"的激活过程",
+                    subtext: "当前节点的影响力为"+active_records[node_no].length,
+                    }
+                })
+            }
+        graph.nodes[active_records[node_no][record_node_no]].category=1;
+        graph.nodes[active_records[node_no][record_node_no]].symbolSize=30;
+        myChart.setOption({
+            series:[{
+                data:graph.nodes,
+                links:graph.links
+            }]
+        })
+        record_node_no++;
+        if(record_node_no==active_records[node_no].length)//当前所有激活节点显示完毕后，显示下一个节点的激活节点
+        {
+           active_records[node_no].forEach(function(node){
+                graph.nodes[node].category=0;
+                graph.nodes[node].symbolSize=15;
+           })
+           record_node_no=0;
+           node_no++;
+
+        }
+     },1500)
+</script>
+</body>
+</html>
