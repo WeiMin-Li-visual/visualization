@@ -266,7 +266,72 @@ def page_rank():
 # 选择单个影响力最大的种子基于节点的度
 @app.route('/degree')#刘艳霞
 def degree():
-    return ''
+    import numpy as np
+    import json
+    # 读取数据
+    networkTemp = []
+    networkFile = open('static/data/Wiki.txt', 'r')
+    # 设置节点数
+    number_of_nodes = 105
+
+    for line in networkFile.readlines():
+        linePiece = line.split()
+        networkTemp.append([int(linePiece[0]), int(linePiece[1])])
+
+    # 设置传给前端的节点数据边数据的json串
+    graph_data_json = {}
+    nodes_data_json = []
+    for node in range(number_of_nodes):
+        nodes_data_json.append({})
+        nodes_data_json[node]['attributes'] = {}
+        nodes_data_json[node]['attributes']['modularity_class'] = 0
+        nodes_data_json[node]['id'] = str(node)
+        nodes_data_json[node]['category'] = 0
+        nodes_data_json[node]['itemStyle'] = ''
+        nodes_data_json[node]['label'] = {}
+        nodes_data_json[node]['label']['normal'] = {}
+        nodes_data_json[node]['label']['normal']['show'] = 'false'
+        nodes_data_json[node]['name'] = str(node)
+        nodes_data_json[node]['symbolSize'] = 35
+        nodes_data_json[node]['value'] = 15
+        nodes_data_json[node]['x'] = 0
+        nodes_data_json[node]['y'] = 0
+    links_data_json = []
+    for link in networkTemp:
+        links_data_json.append({})
+        links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
+        links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
+        links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
+        links_data_json[len(links_data_json) - 1]['name'] = 'null'
+        links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
+        links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
+    graph_data_json['nodes'] = nodes_data_json
+    graph_data_json['links'] = links_data_json
+    graph_data = json.dumps(graph_data_json)
+
+    #网络的邻接矩阵
+    adjacencyMatrix=np.zeros([number_of_nodes,number_of_nodes],dtype=int)
+    for i in range(len(networkTemp)):
+        adjacencyMatrix[int(networkTemp[i][0]-1)][int(networkTemp[i][1]-1)]=1
+        adjacencyMatrix[int(networkTemp[i][1] - 1)][int(networkTemp[i][0] - 1)] = 1
+    active_records=[]# 用来存放每个节点的模拟结果
+    for i in range(number_of_nodes):
+        active_records.append([])
+        for j in range(number_of_nodes):
+            if(adjacencyMatrix[i][j]==1):
+                active_records[i].append(j)
+    active_records = json.dumps(active_records)
+
+    #存放各个节点的度
+    nodeDegree=[]
+    for i in range(len(adjacencyMatrix)):
+        nodeDegree.append(sum(adjacencyMatrix[i]))
+    #最大影响力节点
+    max_influence_node=nodeDegree.index(max(nodeDegree))+1
+    #最大影响力节点的度
+    max_node_influence=max(nodeDegree)
+    return render_template('degree.html', graph_data=graph_data,active_records=active_records,
+                           max_node_influence=max_node_influence, max_influence_node=max_influence_node)
 
 
 if __name__ == '__main__':
