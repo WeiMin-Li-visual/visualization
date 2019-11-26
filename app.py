@@ -244,8 +244,8 @@ def basic_ic_10():  # 胡莎莎
     max_node_influence, max_influence_node=max_influence_node)
 
 
-# 选择单个影响力最大的种子基于lt模型（每个节点模拟一次）
-@app.route('/basicLt1')  # 王钊
+# 选择单个影响力最大的种子基于lt模型（每个节点模拟十次）
+@app.route('/basicLt10')  # 王钊
 def basic_lt_1():
     # file = open('static/data/test.txt', 'r')
     # graph_data = file.read()
@@ -326,11 +326,10 @@ def basic_lt_1():
     graph_data_json['links'] = links_data_json
     graph_data = json.dumps(graph_data_json)
 
-    def set_influence_LT(node_set, m):
+    def set_influence_LT(node_set):
         """
         基于LT模型计算node_set集合的影响力
         :param node_set: 节点集合
-        :param m: 设置使用的权重矩阵
         :return: 返回被激活的节点集合
         """
         active_nodes = node_set  # 存放被激活的节点，初始为node_set
@@ -348,25 +347,29 @@ def basic_lt_1():
             start = last_influence
         return active_nodes
 
-    theta = []  # 保存每个节点的阈值
-    for iteration in range(number_of_nodes):  # 为每个节点随机设置阈值
-        theta.append(random.random())
-    # 基于LT模型，执行贪心算法找影响力最大的节点
+    # 基于LT模型，找影响力最大的节点
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
     method = 1  # 选择使用哪种权重进行
-    save_theta = copy.deepcopy(theta)  # 保存theta
     for node in range(number_of_nodes):  # 遍历所有的节点，判断影响力
         active_records.append([])
-        active_records[node] = set_influence_LT([node], method)  # 执行贪心算法，保存被激活的节点，第一个参数为列表
-        influence = len(active_records[node])
+        stimulate_round = 10  # 激活轮数
+        count_influence = 0  # 记录当前节点10次模拟的影响力总和
+        for round in range(stimulate_round):  # 重新设置每个节点的阈值
+            theta = []  # 保存每个节点的阈值
+            for iteration in range(number_of_nodes):  # 为每个节点随机设置阈值
+                theta.append(random.random())
+            l = set_influence_LT([node])
+            active_records[node].append(l)  # 保存被激活的节点，第一个参数为列表
+            count_influence += len(l)
+        influence = count_influence / stimulate_round
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
-        theta = copy.deepcopy(save_theta)  # 恢复theta
+
     active_records = json.dumps(active_records)
     # 把你需要的数据给对应的页面
-    return render_template('basic_ic_1.html', graph_data=graph_data, active_records=active_records, max_node_influence=
+    return render_template('basic_lt_10.html', graph_data=graph_data, active_records=active_records, max_node_influence=
     max_node_influence, max_influence_node=max_influence_node)
 
 

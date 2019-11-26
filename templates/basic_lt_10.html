@@ -12,6 +12,7 @@
     var app = {};
     var active_records = {{ active_records | tojson }};
     active_records = JSON.parse(active_records);
+    var str="当前节点第1次模拟的影响力为:"+active_records[0][0].length; //记录副标题
     option = null;
     var graph = {{ graph_data | tojson }}//获取后端返回的图数据,tojson 将变量输出为字符串
         graph = JSON.parse(graph)//转成javascript 对象
@@ -56,7 +57,7 @@
     option = {
         title: {
              text: '节点'+0+"的激活过程",
-             subtext: "当前节点的影响力为"+active_records[0].length,
+             subtext: str,
         },
         tooltip: {},
         legend: [{
@@ -80,7 +81,7 @@
                 animation: false,//是否开启动画
                 focusNodeAdjacency: true,//是否在鼠标移到节点上的时候突出显示节点以及节点的边和邻接节点。
                 itemStyle: {//图形样式
-                    normal: {//normal？？？？
+                    normal: {
                         borderColor: '#fff',
                         borderWidth: 1,
                         shadowBlur: 10,
@@ -111,56 +112,64 @@
     var max_node_influence={{max_node_influence}};
     var node_no = 0;//用来记录当前显示的节点
     var record_node_no = 0;//记录当前被激活的节点数
-     interval_no = setInterval(function () {
-         if(node_no==active_records.length)//所有节点显示完毕后，显示影响力最大的节点
-            {
-                graph.nodes[max_influence_node].category=1;
-                graph.nodes[max_influence_node].symbolSize=30;
-                active_records[max_influence_node].forEach(function(node){
-                    graph.nodes[node].category=1;
-                    graph.nodes[node].symbolSize=30;
+    var stimulate_round=0;//记录模拟的次数
+    interval_no = setInterval(function () {
+        if(node_no==active_records.length)//所有节点显示完毕后，显示影响力最大的节点
+           {
+               graph.nodes[max_influence_node].category=1;
+               graph.nodes[max_influence_node].symbolSize=30;
+               myChart.setOption({
+                     title: {
+                       text: "影响力最大的节点为："+max_influence_node,
+                       subtext: "平均的影响力为"+max_node_influence,
+                     },
+                     series:[{
+                       data:graph.nodes,
+                       links:graph.links
+                     }]
                })
-                myChart.setOption({
-                      title: {
-                        text: "影响力最大的节点为："+max_influence_node,
-                        subtext: "影响力为"+max_node_influence,
-                      },
-                      series:[{
-                        data:graph.nodes,
-                        links:graph.links
-                      }]
-                })
-                clearInterval(interval_no);// 跳出setInterval，结束循环
-            }
-         if(record_node_no==0)
-            {
-                myChart.setOption({
-                    title: {
-                    text: '节点'+node_no+"的激活过程",
-                    subtext: "当前节点的影响力为"+active_records[node_no].length,
-                    }
-                })
-            }
-        graph.nodes[active_records[node_no][record_node_no]].category=1;
-        graph.nodes[active_records[node_no][record_node_no]].symbolSize=30;
-        myChart.setOption({
-            series:[{
-                data:graph.nodes,
-                links:graph.links
-            }]
-        })
-        record_node_no++;
-        if(record_node_no==active_records[node_no].length)//当前所有激活节点显示完毕后，显示下一个节点的激活节点
-        {
-           active_records[node_no].forEach(function(node){
-                graph.nodes[node].category=0;
-                graph.nodes[node].symbolSize=15;
-           })
-           record_node_no=0;
-           node_no++;
+               clearInterval(interval_no);// 跳出setInterval，结束循环
+           }
+       graph.nodes[active_records[node_no][stimulate_round][record_node_no]].category=1;
+       graph.nodes[active_records[node_no][stimulate_round][record_node_no]].symbolSize=30;
+       myChart.setOption({
+           title:{
+                subtext: str
+           },
+           series:[{
+               data:graph.nodes,
+               links:graph.links
+           }]
+       })
+       record_node_no++;
+       if(record_node_no==active_records[node_no][stimulate_round].length)//当前模拟结束，进行下一次模拟
+       {
 
-        }
-     },1500)
+          active_records[node_no][stimulate_round].forEach(function(node){
+               graph.nodes[node].category=0;
+               graph.nodes[node].symbolSize=15;
+          })
+          record_node_no=0;
+          stimulate_round++;
+          if(stimulate_round==9)
+            var k=10;
+          if(stimulate_round<10)
+            str+="\n"+"当前节点第"+(stimulate_round+1)+
+                    "次模拟的影响力为:"+active_records[node_no][stimulate_round].length;
+       }
+       if(stimulate_round==10)
+           {
+               stimulate_round=0;
+               str="当前节点第"+(stimulate_round+1)+"次模拟的影响力为:"+active_records[node_no][stimulate_round].length;
+               node_no++;
+               myChart.setOption({
+                   title: {
+                   text: '节点'+node_no+"的激活过程",
+                   subtext: str
+                   }
+               })
+           }
+    },1500)
 </script>
 </body>
 </html>
