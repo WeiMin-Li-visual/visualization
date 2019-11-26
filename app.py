@@ -128,7 +128,7 @@ def basic_ic_1():
 
 # 选择单个影响力最大的种子基于ic模型（每个节点模拟十次）
 @app.route('/basicIc10')
-def basic_ic_10():#胡莎莎
+def basic_ic_10():  # 胡莎莎
     # file = open('static/data/test.txt', 'r')
     # graph_data = file.read()
     # file.close()
@@ -231,7 +231,7 @@ def basic_ic_10():#胡莎莎
     for node in range(number_of_nodes):
         active_records.append([])
         influence = 0
-        for simulation_count in range(0, 10): # 模拟10次
+        for simulation_count in range(0, 10):  # 模拟10次
             active_records[node].append([])
             active_records[node][simulation_count] = set_influence([node], 1)  # 把这个节点的模拟结果存起来
             influence += len(active_records[node][simulation_count])
@@ -242,6 +242,7 @@ def basic_ic_10():#胡莎莎
     # 把你需要的数据给对应的页面
     return render_template('basic_ic_10.html', graph_data=graph_data, active_records=active_records, max_node_influence=
     max_node_influence, max_influence_node=max_influence_node)
+
 
 # 选择单个影响力最大的种子基于lt模型（每个节点模拟一次）
 @app.route('/basicLt1')  # 王钊
@@ -376,7 +377,7 @@ def page_rank():
 
 
 # 选择单个影响力最大的种子基于节点的度
-@app.route('/degree')#刘艳霞
+@app.route('/degree')  # 刘艳霞
 def degree():
     import numpy as np
     import json
@@ -421,28 +422,28 @@ def degree():
     graph_data_json['links'] = links_data_json
     graph_data = json.dumps(graph_data_json)
 
-    #网络的邻接矩阵
-    adjacencyMatrix=np.zeros([number_of_nodes,number_of_nodes],dtype=int)
+    # 网络的邻接矩阵
+    adjacencyMatrix = np.zeros([number_of_nodes, number_of_nodes], dtype=int)
     for i in range(len(networkTemp)):
-        adjacencyMatrix[int(networkTemp[i][0]-1)][int(networkTemp[i][1]-1)]=1
+        adjacencyMatrix[int(networkTemp[i][0] - 1)][int(networkTemp[i][1] - 1)] = 1
         adjacencyMatrix[int(networkTemp[i][1] - 1)][int(networkTemp[i][0] - 1)] = 1
-    active_records=[]# 用来存放每个节点的模拟结果
+    active_records = []  # 用来存放每个节点的模拟结果
     for i in range(number_of_nodes):
         active_records.append([])
         for j in range(number_of_nodes):
-            if(adjacencyMatrix[i][j]==1):
+            if (adjacencyMatrix[i][j] == 1):
                 active_records[i].append(j)
     active_records = json.dumps(active_records)
 
-    #存放各个节点的度
-    nodeDegree=[]
+    # 存放各个节点的度
+    nodeDegree = []
     for i in range(len(adjacencyMatrix)):
         nodeDegree.append(sum(adjacencyMatrix[i]))
-    #最大影响力节点
-    max_influence_node=nodeDegree.index(max(nodeDegree))+1
-    #最大影响力节点的度
-    max_node_influence=max(nodeDegree)
-    return render_template('degree.html', graph_data=graph_data,active_records=active_records,
+    # 最大影响力节点
+    max_influence_node = nodeDegree.index(max(nodeDegree)) + 1
+    # 最大影响力节点的度
+    max_node_influence = max(nodeDegree)
+    return render_template('degree.html', graph_data=graph_data, active_records=active_records,
                            max_node_influence=max_node_influence, max_influence_node=max_influence_node)
 
 
