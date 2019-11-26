@@ -1,10 +1,172 @@
 <!DOCTYPE html>
-<html lang="en">
+<html style="height: 100%; initial-scale: 0.1">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>page_rank算法计算过程</title>
 </head>
-<body>
+<body style="height: 100%; margin: 0">
+<div id="container" style="height: 100%"></div>
+<script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript">
+	var dom = document.getElementById("container");
+	var myChart = echarts.init(dom);
+	var app = {};
+	var graph = {{ graph_data | tojson }}
+		graph = JSON.parse(graph)
+	var categories = [];
+	categories[0] = {
+		name: '其它',
+		itemStyle:{
+			color: '#2f4554'
+		}
+	}
+	categories[1] = {
+        name: '当前节点',
+        itemStyle: {
+            color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                    offset: 0, color: 'yellow'
+                }, {
+                    offset: 1, color: 'blue'
+                }]
+            }
+        }
+    };
+	graph.nodes.forEach(function (node) {
+        node.itemStyle = null;
+        node.symbolSize = 15;
+        node.value = node.symbolSize;
+        node.category = node.attributes.modularity_class;
+        node.draggable = true;
+    });
+	var option = {
+        title: {
+            text: 'Les Miserables',
+            subtext: 'Default layout',
+            top: 'bottom',
+            left: 'right'
+        },
+        tooltip: {},
+        legend: [{
+            // selectedMode: 'single',
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }],
+        animationDuration: 1500,
+        animationEasingUpdate: 'quinticInOut',
+        series: [
+            {
+                name: 'Les Miserables',
+                type: 'graph',
+                layout: 'circular',
+                data: graph.nodes,
+                links: graph.links,
+                categories: categories,
+                roam: true,
+                animation: false,
+                focusNodeAdjacency: true,
+                itemStyle: {
+                    normal: {
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    }
+                },
+                label: {
+                    position: 'right',
+                    formatter: '{b}'
+                },
+                lineStyle: {
+                    color: 'source',
+                    curveness: 0.3
+                },
+                emphasis: {
+                    lineStyle: {
+                        width: 10
+                    }
+                },
+                force: {
+                    repulsion: 270
+                }
+            }
+        ]
+    };
+	myChart.setOption(option);
+	
+	//显示page_rank算法的计算过程
+	var influences = {{ influences }};
+	var max_influence = {{ max_influence }};
+	var max_inf_node = {{ max_inf_node }};
+	var node_now = 0;	//当前计算的节点
+	var iter = 1;		//当前迭代次数
+	var node_num = 104;
+	var max_iter = 9;
+	var s = ''
+	interval_no= setInterval(function(){
+		if(node_now == 0){ 	//进行下一次迭代，刷新页面
+			s = ''
+			myChart.setOption({
+				title: {
+					text: '第' + iter + '次迭代'
+				}
+			});
+		}
+		graph.nodes[node_now].category = 1;
+		graph.nodes[node_now].symbolSize = 30;
+		s += '当前节点为' + node_now + ',影响力为：' + influences[iter][node_now] + '\n'
+		myChart.setOption({
+			title: {
+				subtext: s,
+				top: 'top',
+				left: 'left'
+			},
+			series: [
+				{
+					data: graph.nodes,
+					links: graph.links
+				}
+			]
+		});
+		graph.nodes[node_now].category = 0;
+		graph.nodes[node_now].symbolSize = 15;
+		if(node_now == node_num - 1){
+			iter++;
+			node_now = 0;
+		}else{
+			node_now++;
+			if(node_now % 25 == 0){
+				s = '';
+			}
+		}
+		//收敛，显示影响力最大的节点
+		if(iter == max_iter){	
+			graph.nodes[max_inf_node].category = 1;
+			graph.nodes[max_inf_node].symbolSize = 30;
+			myChart.setOption({
+				title: {
+					text: '达到迭代终止条件，总迭代次数为：' + max_iter + '\n影响力最大的节点是：' + max_inf_node,
+					subtext: '其影响力为：' + max_influence,
+					top: 'top',
+					left: 'left'
+				},
+				series: [
+					{
+						data: graph.nodes,
+						links: graph.links
+					}
+				]
+			});
+			clearInterval(interval_no);
+		}
+	}, 100);
 
+</script>
 </body>
 </html>

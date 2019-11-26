@@ -374,9 +374,96 @@ def basic_lt_1():
 
 
 # 选择单个影响力最大的种子基于page rank
+# author: 张财
+# date: 2019年11月25日22:19:26
 @app.route('/pageRank')
 def page_rank():
-    return ''
+    import math
+    import copy
+
+    network_file = open('static/data/Wiki.txt')
+    network = []
+    for each_line in network_file:
+        line_split = each_line.split()
+        network.append([int(line_split[0]), int(line_split[1])])
+    network_file.close()
+    # 计算节点个数
+    nodes = set({})
+    for each_link in network:
+        nodes.add(each_link[0])
+        nodes.add(each_link[1])
+    node_num = len(nodes)
+
+    increment = 1   #每次迭代后节点影响力的增量,迭代终止条件
+    iteration = 1   #当前迭代次数
+    inf_old = [1]*node_num    #上一次迭代后节点的影响力,初始化为1
+    inf_new = [0]*node_num    #这次迭代后影响力的更新，初始化为0
+    c = 0.5
+    outdegree = []  # 每个节点的出度
+    node_neighbors = []     #指向该节点的邻居节点集合
+    iter_influences = [copy.deepcopy(inf_old)]    #每次迭代后个节点的影响力
+
+    # 求出度和邻居节点
+    for node in range(node_num):
+        cur_node_neighbors = []  # 节点node的邻居节点
+        node_outdegree = 0
+        for each_link in network:
+            if node + 1 == each_link[1]:
+                cur_node_neighbors.append(each_link[0] - 1)
+            if node + 1 == each_link[0]:
+                node_outdegree += 1
+        outdegree.append(node_outdegree)
+        node_neighbors.append(cur_node_neighbors)
+
+    # 开始迭代求节点影响力
+    while increment > 1 / node_num:
+        increment = 0
+        for node in range(node_num):
+            # 求节点node的影响力
+            for neighbor in node_neighbors[node]:
+                inf_new[node] += c * (inf_old[neighbor] / outdegree[neighbor])
+            inf_new[node] += (1 - c)
+            node_increment = math.fabs(inf_new[node] - inf_old[node])   #节点node的影响力改变值
+            increment += node_increment
+        # 更新inf_old
+        for i in range(node_num):
+            inf_old[i] = inf_new[i]
+            inf_new[i] = 0
+        iter_influences.append(copy.deepcopy(inf_old))
+        iteration += 1
+    max_influence = max(inf_old)                #最大的影响力
+    max_inf_node = inf_old.index(max_influence) #最大影响力的节点
+
+    # 可视化部分
+    # 设置传给前端的节点数据边数据的json串
+    graph_data_json = {}
+    nodes_data_json = []
+    for node in range(node_num):
+        nodes_data_json.append({
+            'attributes': {'modularity_class': 0},
+            'id': str(node),
+            'category': 0,
+            'itemStyle': '',
+            'label': {'normal': {'show': 'false'}},
+            'name': str(node),
+            'symbolSize': 35,
+            'value': 15
+        })
+    links_data_json = []
+    for link in network:
+        link_id = len(links_data_json)
+        links_data_json.append({
+            'id': str(link_id),
+            'lineStyle': {'normal': {}},
+            'name': 'null',
+            'source': str(link[0] - 1),
+            'target': str(link[1] - 1)
+        })
+    graph_data_json['nodes'] = nodes_data_json
+    graph_data_json['links'] = links_data_json
+    graph_data = json.dumps(graph_data_json)
+    return render_template('page_rank.html', graph_data=graph_data, influences=iter_influences,
+                           max_influence=max_influence, max_inf_node=max_inf_node)
 
 
 # 选择单个影响力最大的种子基于节点的度
