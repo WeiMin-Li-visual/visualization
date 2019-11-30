@@ -48,9 +48,6 @@
         node.symbolSize = 15;//节点标记大小
         node.value = node.symbolSize;
         node.category = node.attributes.modularity_class;//指定节点所在的类目
-        // Use random x, y
-        node.x = Math.random() % myChart.getWidth();
-        node.y = Math.random() % myChart.getHeight();
         node.draggable = true;//是否可以被拖拽
     });
     //设置要生成的图的相关属性
