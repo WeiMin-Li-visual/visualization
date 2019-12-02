@@ -12,3 +12,6 @@
 2.王钊先把basiclt一遍弄成十遍然后和张财一起学习layui（一种前端框架）然后在https://www.layui.com/doc/element/layout.html#admin 文档中学习做一个后台前面，左侧侧边栏先弄两个条目一个影响力最大化，一个社区划分，然后顶部导航栏先不放东西，就放一个‘social network visualization’的标题就好<br>
 3.周日的时候跟我说下，做到什么程度我好安排下一步的打算<br>
 4.胡莎莎和刘艳霞可以考虑一下节点的颜色设计之类，怎么弄节点和边的颜色会好看一点<br>
+# round 3
+1.张财把项目弄到笔记本上，然后明天组会给老师展示一下，看老师还需要什么功能，再来决定这一周的需求<br>
+2.部署服务器我在研究了，周三之前我会制定几位同学负责这个事，四位同学可以先在https://www.runoob.com/linux/linux-tutorial.html 学一点linux基础知识熟悉一下linux的基本指令
