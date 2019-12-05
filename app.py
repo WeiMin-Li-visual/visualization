@@ -637,74 +637,8 @@ def test():
     import random
     import json
     # 读取数据
-    networkTemp = []
-    networkFile = open('static/data/Wiki.txt', 'r')
-    # 设置节点数
-    number_of_nodes = 105
-
-    for line in networkFile.readlines():
-        linePiece = line.split()
-        networkTemp.append([int(linePiece[0]), int(linePiece[1])])
-    # 初始化权重矩阵
-    networkWeight = []
-    for i in range(3):
-        networkWeight.append([])
-        for j in range(number_of_nodes):
-            networkWeight[i].append([])
-            for k in range(number_of_nodes):
-                networkWeight[i][j].append(0)
-    # 设置权重
-    # 边的权重有三种设置方式，一种是从[0.1, 0.01, 0.001]中随机选一个，一种是都固定0.1，一种是节点的入度分之一
-    probability_list = [0.1, 0.01, 0.001]
-    for linePiece in networkTemp:
-        networkWeight[0][linePiece[0] - 1][linePiece[1] - 1] = random.choice(probability_list)
-        networkWeight[1][linePiece[0] - 1][linePiece[1] - 1] = 0.1
-    for node in range(number_of_nodes):
-        degree = 0
-        for iteration in range(number_of_nodes):
-            if iteration != node:
-                if networkWeight[1][iteration][node]:
-                    degree = degree + 1
-        for iteration in range(number_of_nodes):
-            if iteration != node:
-                if networkWeight[1][iteration][node]:
-                    networkWeight[2][iteration][node] = 1 / degree
-    networkFile.close()
-    # 设置传给前端的节点数据边数据的json串
-
-    node_coordinate = forceDirect(networkTemp)  # 设置节点的坐标
-
-    # 设置传给前端的节点数据边数据的json串
-    graph_data_json = {}
-    nodes_data_json = []
-    for node in range(number_of_nodes):
-        nodes_data_json.append({})
-        nodes_data_json[node]['attributes'] = {}
-        nodes_data_json[node]['attributes']['modularity_class'] = 0
-        nodes_data_json[node]['id'] = str(node)
-        nodes_data_json[node]['category'] = 0
-        nodes_data_json[node]['itemStyle'] = ''
-        nodes_data_json[node]['label'] = {}
-        nodes_data_json[node]['label']['normal'] = {}
-        nodes_data_json[node]['label']['normal']['show'] = 'false'
-        nodes_data_json[node]['name'] = str(node)
-        nodes_data_json[node]['symbolSize'] = 35
-        nodes_data_json[node]['value'] = 15
-        nodes_data_json[node]['x'] = node_coordinate[node][0]
-        nodes_data_json[node]['y'] = node_coordinate[node][1]
-    links_data_json = []
-    for link in networkTemp:
-        links_data_json.append({})
-        links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
-        links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
-        links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
-        links_data_json[len(links_data_json) - 1]['name'] = 'null'
-        links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
-        links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
-    graph_data_json['nodes'] = nodes_data_json
-    graph_data_json['links'] = links_data_json
-    graph_data = json.dumps(graph_data_json)
-
+    global networkWeight
+    global graph_data
     def influence_spread(seed, m):
         """
         使用IC模型传播影响力
@@ -726,41 +660,109 @@ def test():
         return active
 
     if request.method == "GET":
+        networkTemp = []
+        networkFile = open('static/data/Wiki.txt', 'r')
+        # 设置节点数
+        number_of_nodes = 105
+
+        for line in networkFile.readlines():
+            linePiece = line.split()
+            networkTemp.append([int(linePiece[0]), int(linePiece[1])])
+        # 初始化权重矩阵
+        networkWeight = []
+        for i in range(3):
+            networkWeight.append([])
+            for j in range(number_of_nodes):
+                networkWeight[i].append([])
+                for k in range(number_of_nodes):
+                    networkWeight[i][j].append(0)
+        # 设置权重
+        # 边的权重有三种设置方式，一种是从[0.1, 0.01, 0.001]中随机选一个，一种是都固定0.1，一种是节点的入度分之一
+        probability_list = [0.1, 0.01, 0.001]
+        for linePiece in networkTemp:
+            networkWeight[0][linePiece[0] - 1][linePiece[1] - 1] = random.choice(probability_list)
+            networkWeight[1][linePiece[0] - 1][linePiece[1] - 1] = 0.1
+        for node in range(number_of_nodes):
+            degree = 0
+            for iteration in range(number_of_nodes):
+                if iteration != node:
+                    if networkWeight[1][iteration][node]:
+                        degree = degree + 1
+            for iteration in range(number_of_nodes):
+                if iteration != node:
+                    if networkWeight[1][iteration][node]:
+                        networkWeight[2][iteration][node] = 1 / degree
+        networkFile.close()
+        # 设置传给前端的节点数据边数据的json串
+        node_coordinate = forceDirect(networkTemp)
+        graph_data_json = {}
+        nodes_data_json = []
+        for node in range(number_of_nodes):
+            nodes_data_json.append({})
+            nodes_data_json[node]['attributes'] = {}
+            nodes_data_json[node]['attributes']['modularity_class'] = 0
+            nodes_data_json[node]['id'] = str(node)
+            nodes_data_json[node]['category'] = 0
+            nodes_data_json[node]['itemStyle'] = ''
+            nodes_data_json[node]['label'] = {}
+            nodes_data_json[node]['label']['normal'] = {}
+            nodes_data_json[node]['label']['normal']['show'] = 'false'
+            nodes_data_json[node]['name'] = str(node)
+            nodes_data_json[node]['symbolSize'] = 35
+            nodes_data_json[node]['value'] = 15
+            nodes_data_json[node]['x'] = node_coordinate[node][0]
+            nodes_data_json[node]['y'] = node_coordinate[node][1]
+        links_data_json = []
+        for link in networkTemp:
+            links_data_json.append({})
+            links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
+            links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
+            links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
+            links_data_json[len(links_data_json) - 1]['name'] = 'null'
+            links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
+            links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
+        graph_data_json['nodes'] = nodes_data_json
+        graph_data_json['links'] = links_data_json
+        graph_data = json.dumps(graph_data_json)
         err = "true"
         active_records = json.dumps([])
         return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
     else:
         err = "false"  # 返回错误信息
-        temp = request.form.get("value")  # 获取前端传回的数据
-        method = request.form.get("method")
+
+        temp = request.form.get('value')
+        method = request.form.get('method')
         if method != "":
-            method = int(method)
-            if method > 3 or method < 1:
-                err = "method error"
+            if len(method) != 1:
+                err = "请勿在方法栏输入多个数字"
+            else:
+                method = int(method)
+                if method > 3 or method < 1:
+                    err = "方法为1-3的整数"
         else:
             err = "请输入方法"
         if len(temp) == 0:
             err = "请输入节点信息"
         if err != "false":
             active_records = json.dumps([])
-            return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
+            return render_template('input.html', graph_data=graph_data, active_records=active_records,err=err)
         data = []
         method -= 1
         for c in temp:
-            if c.isdigit() and c != ',':
+            if c.isdigit() and c != ',' and c != '，':
                 c = int(c)
                 if 0 <= c <= 104 and type(c) == int:
                     data.append(c)
                 else:
                     err = "节点序号应为0-104的整数"
-            elif c != ',':
+            elif c != ',' and c != '，':
                 err = "节点序号应为0-104的整数"
                 active_records = json.dumps([])
-                return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
+                return render_template('input.html', graph_data=graph_data, active_records=active_records,err=err)
 
         active_node = influence_spread(data, method)  # 保存激活的节点
         active_records = json.dumps(active_node)
-        return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
+        return render_template('input.html', graph_data=graph_data, active_records=active_records,err=err)
 
 
 if __name__ == '__main__':
