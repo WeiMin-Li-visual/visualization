@@ -10,79 +10,81 @@ app.secret_key = 'lisenzzz'
 def hello_world():
     return render_template('index.html')
 
-#计算局部区域内两两节点间的斥力所产生的单位位移
+
+# 计算局部区域内两两节点间的斥力所产生的单位位移
 def updateReplusion(node_coordinate):
     import math
-    number_of_nodes=105
-    ejectFactor=6#斥力系数
-    k=math.sqrt(1024*768/number_of_nodes)
+    number_of_nodes = 105
+    ejectFactor = 6  # 斥力系数
+    k = math.sqrt(1024 * 768 / number_of_nodes)
     for i in range(number_of_nodes):
         node_coordinate[i].append(0)
         node_coordinate[i].append(0)
         for j in range(number_of_nodes):
-            if(i!=j):
-                dx = node_coordinate[i][0] - node_coordinate[j][0]#两个节点x坐标位置的距离
-                dy = node_coordinate[i][1] - node_coordinate[j][1]#两个节点y坐标位置的距离
-                dist =math.sqrt( dx * dx + dy * dy)#两个节点之间的距离
-                if(dist<30):
-                    ejectFactor=5
-                if(dist>0 and dist<250):
+            if (i != j):
+                dx = node_coordinate[i][0] - node_coordinate[j][0]  # 两个节点x坐标位置的距离
+                dy = node_coordinate[i][1] - node_coordinate[j][1]  # 两个节点y坐标位置的距离
+                dist = math.sqrt(dx * dx + dy * dy)  # 两个节点之间的距离
+                if (dist < 30):
+                    ejectFactor = 5
+                if (dist > 0 and dist < 250):
                     node_coordinate[i][2] += dx / dist * k / dist * ejectFactor
                     node_coordinate[i][3] += dy / dist * k / dist * ejectFactor
     return node_coordinate
 
 
-#计算每条边的引力对两端节点所产生的单位位移
-def updateSpring(node_coordinate,networkTemp):
+# 计算每条边的引力对两端节点所产生的单位位移
+def updateSpring(node_coordinate, networkTemp):
     import math
-    number_of_nodes=105
+    number_of_nodes = 105
     k = math.sqrt(1024 * 768 / number_of_nodes)
-    condenseFactor = 5#引力系数
+    condenseFactor = 5  # 引力系数
     for i in range(len(networkTemp)):
-        start=networkTemp[i][0]-1
-        end=networkTemp[i][1]-1
-        dx=node_coordinate[start][0]-node_coordinate[end][0]
-        dy=node_coordinate[start][1]-node_coordinate[end][1]
-        dist=math.sqrt(dx*dx+dy*dy)
-        node_coordinate[start][2]-=dx*dist/k*condenseFactor
+        start = networkTemp[i][0] - 1
+        end = networkTemp[i][1] - 1
+        dx = node_coordinate[start][0] - node_coordinate[end][0]
+        dy = node_coordinate[start][1] - node_coordinate[end][1]
+        dist = math.sqrt(dx * dx + dy * dy)
+        node_coordinate[start][2] -= dx * dist / k * condenseFactor
         node_coordinate[start][3] -= dy * dist / k * condenseFactor
         node_coordinate[end][2] += dx * dist / k * condenseFactor
         node_coordinate[end][3] += dy * dist / k * condenseFactor
     return node_coordinate
 
 
-#更新坐标位置
+# 更新坐标位置
 def update(node_coordinate):
     import math
-    number_of_nodes=105
-    maxtx=4
-    maxty=3
+    number_of_nodes = 105
+    maxtx = 4
+    maxty = 3
     for i in range(number_of_nodes):
-        dx=math.floor(node_coordinate[i][2])
-        dy=math.floor(node_coordinate[i][3])
-        if dx<-maxtx:
-            dx=-maxtx
-        if dx>maxtx:
-            dx=maxtx
-        if dy<-maxty:
-            dy=-maxty
-        if dy>maxty:
-            dy=maxty
-        if node_coordinate[i][0]+dx>=1024 or node_coordinate[i][0]+dx<=0:
-            node_coordinate[i][0]-=dx
+        dx = math.floor(node_coordinate[i][2])
+        dy = math.floor(node_coordinate[i][3])
+        if dx < -maxtx:
+            dx = -maxtx
+        if dx > maxtx:
+            dx = maxtx
+        if dy < -maxty:
+            dy = -maxty
+        if dy > maxty:
+            dy = maxty
+        if node_coordinate[i][0] + dx >= 1024 or node_coordinate[i][0] + dx <= 0:
+            node_coordinate[i][0] -= dx
         else:
             node_coordinate[i][0] += dx
-        if node_coordinate[i][1]+dy>=768 or node_coordinate[i][1]+dy<=0:
-            node_coordinate[i][1]-=dy
+        if node_coordinate[i][1] + dy >= 768 or node_coordinate[i][1] + dy <= 0:
+            node_coordinate[i][1] -= dy
         else:
             node_coordinate[i][1] += dy
         # node_coordinate[i][0]+=dx
         # node_coordinate[i][1]+=dy
     return node_coordinate
 
+
 def forceDirect(networkTemp):
     import random
-    number_of_nodes=105
+    number_of_nodes = 105
     node_coordinate = []  # 存放节点的坐标及节点之间的斥力，[x坐标，y坐标,force_x.force_y]
     for node in range(number_of_nodes):
         node_coordinate.append([])
@@ -91,13 +93,10 @@ def forceDirect(networkTemp):
         # node_coordinate[node].append(0)
         # node_coordinate[node].append(0)
     for i in range(500):
-        node_coordinate=updateReplusion(node_coordinate)
-        node_coordinate=updateSpring(node_coordinate,networkTemp)
+        node_coordinate = updateReplusion(node_coordinate)
+        node_coordinate = updateSpring(node_coordinate, networkTemp)
         node_coordinate = update(node_coordinate)
     return node_coordinate
-
-
-
 
 
 # 选择单个影响力最大的种子基于ic模型（每个节点模拟一次）
@@ -142,7 +141,7 @@ def basic_ic_1():
                 if networkWeight[1][iteration][node]:
                     networkWeight[2][iteration][node] = 1 / degree
     networkFile.close()
-    node_coordinate = forceDirect(networkTemp)#设置节点坐标
+    node_coordinate = forceDirect(networkTemp)  # 设置节点坐标
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
     nodes_data_json = []
@@ -258,7 +257,7 @@ def basic_ic_10():  # 胡莎莎
                 if networkWeight[1][iteration][node]:
                     networkWeight[2][iteration][node] = 1 / degree
     networkFile.close()
-    node_coordinate = forceDirect(networkTemp)#设置节点坐标
+    node_coordinate = forceDirect(networkTemp)  # 设置节点坐标
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
     nodes_data_json = []
@@ -385,7 +384,7 @@ def basic_lt_1():
             if iteration != node:
                 if networkWeight[1][iteration][node]:
                     networkWeight[2][iteration][node] = 1 / degree[node]
-    node_coordinate = forceDirect(networkTemp)#设置节点坐标
+    node_coordinate = forceDirect(networkTemp)  # 设置节点坐标
 
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
@@ -486,14 +485,14 @@ def page_rank():
         nodes.add(each_link[1])
     node_num = len(nodes)
 
-    increment = 1   #每次迭代后节点影响力的增量,迭代终止条件
-    iteration = 1   #当前迭代次数
-    inf_old = [1]*node_num    #上一次迭代后节点的影响力,初始化为1
-    inf_new = [0]*node_num    #这次迭代后影响力的更新，初始化为0
+    increment = 1  # 每次迭代后节点影响力的增量,迭代终止条件
+    iteration = 1  # 当前迭代次数
+    inf_old = [1] * node_num  # 上一次迭代后节点的影响力,初始化为1
+    inf_new = [0] * node_num  # 这次迭代后影响力的更新，初始化为0
     c = 0.5
     outdegree = []  # 每个节点的出度
-    node_neighbors = []     #指向该节点的邻居节点集合
-    iter_influences = [copy.deepcopy(inf_old)]    #每次迭代后个节点的影响力
+    node_neighbors = []  # 指向该节点的邻居节点集合
+    iter_influences = [copy.deepcopy(inf_old)]  # 每次迭代后个节点的影响力
 
     # 求出度和邻居节点
     for node in range(node_num):
@@ -515,7 +514,7 @@ def page_rank():
             for neighbor in node_neighbors[node]:
                 inf_new[node] += c * (inf_old[neighbor] / outdegree[neighbor])
             inf_new[node] += (1 - c)
-            node_increment = math.fabs(inf_new[node] - inf_old[node])   #节点node的影响力改变值
+            node_increment = math.fabs(inf_new[node] - inf_old[node])  # 节点node的影响力改变值
             increment += node_increment
         # 更新inf_old
         for i in range(node_num):
@@ -523,8 +522,8 @@ def page_rank():
             inf_new[i] = 0
         iter_influences.append(copy.deepcopy(inf_old))
         iteration += 1
-    max_influence = max(inf_old)                #最大的影响力
-    max_inf_node = inf_old.index(max_influence) #最大影响力的节点
+    max_influence = max(inf_old)  # 最大的影响力
+    max_inf_node = inf_old.index(max_influence)  # 最大影响力的节点
     node_coordinate = forceDirect(network)  # 节点的坐标
 
     # 可视化部分
@@ -541,8 +540,8 @@ def page_rank():
             'name': str(node),
             'symbolSize': 35,
             'value': 15,
-            'x':node_coordinate[node][0],
-            'y':node_coordinate[node][1]
+            'x': node_coordinate[node][0],
+            'y': node_coordinate[node][1]
         })
     links_data_json = []
     for link in network:
@@ -575,8 +574,8 @@ def degree():
     for line in networkFile.readlines():
         linePiece = line.split()
         networkTemp.append([int(linePiece[0]), int(linePiece[1])])
-    node_coordinate = forceDirect(networkTemp)#设置节点的坐标
-
+    node_coordinate = forceDirect(networkTemp)  # 设置节点的坐标
+    networkFile.close()
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
     nodes_data_json = []
@@ -631,6 +630,137 @@ def degree():
     max_node_influence = max(nodeDegree)
     return render_template('degree.html', graph_data=graph_data, active_records=active_records,
                            max_node_influence=max_node_influence, max_influence_node=max_influence_node)
+
+
+@app.route('/input', methods=["GET", "POST"])
+def test():
+    import random
+    import json
+    # 读取数据
+    networkTemp = []
+    networkFile = open('static/data/Wiki.txt', 'r')
+    # 设置节点数
+    number_of_nodes = 105
+
+    for line in networkFile.readlines():
+        linePiece = line.split()
+        networkTemp.append([int(linePiece[0]), int(linePiece[1])])
+    # 初始化权重矩阵
+    networkWeight = []
+    for i in range(3):
+        networkWeight.append([])
+        for j in range(number_of_nodes):
+            networkWeight[i].append([])
+            for k in range(number_of_nodes):
+                networkWeight[i][j].append(0)
+    # 设置权重
+    # 边的权重有三种设置方式，一种是从[0.1, 0.01, 0.001]中随机选一个，一种是都固定0.1，一种是节点的入度分之一
+    probability_list = [0.1, 0.01, 0.001]
+    for linePiece in networkTemp:
+        networkWeight[0][linePiece[0] - 1][linePiece[1] - 1] = random.choice(probability_list)
+        networkWeight[1][linePiece[0] - 1][linePiece[1] - 1] = 0.1
+    for node in range(number_of_nodes):
+        degree = 0
+        for iteration in range(number_of_nodes):
+            if iteration != node:
+                if networkWeight[1][iteration][node]:
+                    degree = degree + 1
+        for iteration in range(number_of_nodes):
+            if iteration != node:
+                if networkWeight[1][iteration][node]:
+                    networkWeight[2][iteration][node] = 1 / degree
+    networkFile.close()
+    # 设置传给前端的节点数据边数据的json串
+
+    node_coordinate = forceDirect(networkTemp)  # 设置节点的坐标
+
+    # 设置传给前端的节点数据边数据的json串
+    graph_data_json = {}
+    nodes_data_json = []
+    for node in range(number_of_nodes):
+        nodes_data_json.append({})
+        nodes_data_json[node]['attributes'] = {}
+        nodes_data_json[node]['attributes']['modularity_class'] = 0
+        nodes_data_json[node]['id'] = str(node)
+        nodes_data_json[node]['category'] = 0
+        nodes_data_json[node]['itemStyle'] = ''
+        nodes_data_json[node]['label'] = {}
+        nodes_data_json[node]['label']['normal'] = {}
+        nodes_data_json[node]['label']['normal']['show'] = 'false'
+        nodes_data_json[node]['name'] = str(node)
+        nodes_data_json[node]['symbolSize'] = 35
+        nodes_data_json[node]['value'] = 15
+        nodes_data_json[node]['x'] = node_coordinate[node][0]
+        nodes_data_json[node]['y'] = node_coordinate[node][1]
+    links_data_json = []
+    for link in networkTemp:
+        links_data_json.append({})
+        links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
+        links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
+        links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
+        links_data_json[len(links_data_json) - 1]['name'] = 'null'
+        links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
+        links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
+    graph_data_json['nodes'] = nodes_data_json
+    graph_data_json['links'] = links_data_json
+    graph_data = json.dumps(graph_data_json)
+
+    def influence_spread(seed, m):
+        """
+        使用IC模型传播影响力
+        :param seed: 初始种子集合
+        :param m: 使用的概率设置方法
+        :return: 被激活的所有节点
+        """
+        active = seed
+        start = 0
+        end = len(seed)
+        while start != end:
+            for node in active[start:end]:
+                for i in range(105):
+                    if networkWeight[m][node][i] != 0:
+                        if i not in active and random.random() < networkWeight[m][node][i]:
+                            active.append(i)
+            start = end
+            end = len(active)
+        return active
+
+    if request.method == "GET":
+        err = "true"
+        active_records = json.dumps([])
+        return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
+    else:
+        err = "false"  # 返回错误信息
+        temp = request.form.get("value")  # 获取前端传回的数据
+        method = request.form.get("method")
+        if method != "":
+            method = int(method)
+            if method > 3 or method < 1:
+                err = "method error"
+        else:
+            err = "请输入方法"
+        if len(temp) == 0:
+            err = "请输入节点信息"
+        if err != "false":
+            active_records = json.dumps([])
+            return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
+        data = []
+        method -= 1
+        for c in temp:
+            if c.isdigit() and c != ',':
+                c = int(c)
+                if 0 <= c <= 104 and type(c) == int:
+                    data.append(c)
+                else:
+                    err = "节点序号应为0-104的整数"
+            elif c != ',':
+                err = "节点序号应为0-104的整数"
+                active_records = json.dumps([])
+                return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
+
+        active_node = influence_spread(data, method)  # 保存激活的节点
+        active_records = json.dumps(active_node)
+        return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
 
 
 if __name__ == '__main__':

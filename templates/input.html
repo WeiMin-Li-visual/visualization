@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../static/layui/css/layui.css" media="all">
+    <style>
+        #container{
+            position:absolute;
+            left:20%;
+        }
+        #control{
+            margin-top:20px;
+            width:20%;
+            height:100%;
+        }
+    </style>
+</head>
+<body style="height: 100%; margin: 0">
+<div id="container" style="height: 100%;width:80%"></div>
+<div id="control">
+    <form class="layui-form" method="post">
+      <div class="layui-form-item">
+        <label class="layui-form-label">输入节点</label>
+        <div class="layui-input-block">
+          <input type="text" name="value" placeholder="请输入节点集合" autocomplete="off" class="layui-input">
+            <i class="layui-icon layui-icon-about" title="请输入0-104中的一个或多个数字"></i>
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">输入方法</label>
+        <div class="layui-input-block">
+          <input type="text" name="method" placeholder="请输入节点权重的设置方法" autocomplete="off" class="layui-input">
+            <i class="layui-icon layui-icon-about"
+               title="边权重设置方法：
+1：从[0.1, 0.01, 0.001]中随机选一个；
+2：固定0.1；
+3：节点的入度分之一">
+            </i>
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <div class="layui-input-block">
+          <button class="layui-btn" lay-submit lay-filter="*">提交</button>
+        </div>
+      </div>
+    </form>
+    <iframe id="iframe" name="iframe" style="display:none;"></iframe>
+</div>
+<script src="../static/layui/layui.js"></script>
+<script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript">
+
+    layui.use('form', function(){
+      var form = layui.form;
+
+      //各种基于事件的操作，下面会有进一步介绍
+    });
+   var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var app = {};
+    option = null;
+    var graph = {{ graph_data | tojson }}//获取后端返回的图数据
+        graph = JSON.parse(graph)
+    //console.log(graph)
+    //设置节点的种类
+    var categories = [];
+    categories[0] = {
+        name: '未激活节点',
+        itemStyle: {
+            color: '#2f4554'
+        }
+    }
+    categories[1] = {
+        name: '激活节点',
+        itemStyle: {
+            color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                    offset: 0, color: 'yellow'
+                }, {
+                    offset: 1, color: 'blue'
+                }]
+            }
+        }
+    };
+    //给节点的属性进行操作
+    graph.nodes.forEach(function (node) {
+        node.itemStyle = null;
+        node.symbolSize = 15;
+        node.value = node.symbolSize;
+        node.category = node.attributes.modularity_class;
+        node.draggable = true;
+    });
+    //设置要生成的图的相关属性
+    option = {
+        title: {
+            text: 'Les Miserables',
+            subtext: 'Default layout',
+            top: 'bottom',
+            left: 'right'
+        },
+        tooltip: {},
+        legend: [{
+            // selectedMode: 'single',
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }],
+        animationDuration: 1500,
+        animationEasingUpdate: 'quinticInOut',
+        series: [
+            {
+                name: 'Les Miserables',
+                type: 'graph',
+                layout: 'none',
+                //下面三项分别设置节点数据，边数据，种类数据
+                data: graph.nodes,
+                links: graph.links,
+                categories: categories,
+                roam: true,
+                animation: false,
+                focusNodeAdjacency: true,
+                itemStyle: {
+                    normal: {
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    }
+                },
+                label: {
+                    position: 'right',
+                    formatter: '{b}'
+                },
+                lineStyle: {
+                    color: 'source',
+                    curveness: 0.3
+                },
+                emphasis: {
+                    lineStyle: {
+                        width: 10
+                    }
+                },
+                force: {
+                    repulsion: 270
+                }
+            }
+        ]
+    };
+
+    myChart.setOption(option);//执行该语句就可以根据你设置的属性进行图的生成
+
+    var err={{err|tojson}};
+    if(err=="false")
+    {
+    var active_records = {{ active_records | tojson }};
+        active_records = JSON.parse(active_records);
+        //下面通过setInterval函数进行不断从激活节点的记录中读取数据然后不断显示
+        var record_node_no = 0;//用来记录当前显示节点的记录的编号
+        myChart.setOption({
+            title: {
+                text: '输入集合的激活过程',
+                subtext: '输入集合的影响力是' + active_records.length,
+                top: 'top',
+                left: 'left'
+            },
+        });
+        var interval_no = setInterval(function () {
+            graph.nodes[active_records[record_node_no]].category = 1;
+            graph.nodes[active_records[record_node_no]].symbolSize = 30;
+            myChart.setOption({
+                series: [
+                {
+                    data: graph.nodes,
+                    links: graph.links
+                }
+            ]
+            })
+            record_node_no+=1
+             if(record_node_no==active_records.length)//当全部节点显示完毕后跳出循环
+                clearInterval(interval_no);
+        }, 1500);
+
+    }
+    else
+    {
+        if(err!="true")
+        {
+              layui.use('layer', function(){
+              var layer = layui.layer;
+              layer.msg(err);
+            });
+        }
+    }
+</script>
+</body>
+</html>
