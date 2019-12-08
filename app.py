@@ -633,12 +633,13 @@ def degree():
 
 
 @app.route('/input', methods=["GET", "POST"])
-def test():
+def input():
     import random
     import json
     # 读取数据
     global networkWeight
     global graph_data
+
     def influence_spread(seed, m):
         """
         使用IC模型传播影响力
@@ -661,7 +662,7 @@ def test():
 
     if request.method == "GET":
         networkTemp = []
-        networkFile = open('static/data/Wiki.txt', 'r')
+        networkFile = open('static/data/Wiki.txt', 'r')  # ///////////////////////////////////注意修改
         # 设置节点数
         number_of_nodes = 105
 
@@ -729,40 +730,48 @@ def test():
         return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
     else:
         err = "false"  # 返回错误信息
-
         temp = request.form.get('value')
         method = request.form.get('method')
         if method != "":
             if len(method) != 1:
-                err = "请勿在方法栏输入多个数字"
-            else:
+                err = "请勿在方法栏输入多个值"
+            elif '0'<method<'9':
                 method = int(method)
                 if method > 3 or method < 1:
                     err = "方法为1-3的整数"
+            else:
+                err="方法为1-3的整数"
         else:
             err = "请输入方法"
         if len(temp) == 0:
             err = "请输入节点信息"
         if err != "false":
             active_records = json.dumps([])
-            return render_template('input.html', graph_data=graph_data, active_records=active_records,err=err)
+            return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
         data = []
         method -= 1
+        s = ""
         for c in temp:
-            if c.isdigit() and c != ',' and c != '，':
+            if c == "，":
+                s += ","
+            else:
+                s += c
+        s=set(s.split(","))
+        for c in s:
+            if c.isdigit() and c != ',' and c!='，':
                 c = int(c)
                 if 0 <= c <= 104 and type(c) == int:
                     data.append(c)
                 else:
                     err = "节点序号应为0-104的整数"
-            elif c != ',' and c != '，':
+            elif c != ',' and c!='，':
                 err = "节点序号应为0-104的整数"
                 active_records = json.dumps([])
-                return render_template('input.html', graph_data=graph_data, active_records=active_records,err=err)
+                return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
 
         active_node = influence_spread(data, method)  # 保存激活的节点
         active_records = json.dumps(active_node)
-        return render_template('input.html', graph_data=graph_data, active_records=active_records,err=err)
+        return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
 
 
 if __name__ == '__main__':
