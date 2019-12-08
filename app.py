@@ -662,7 +662,7 @@ def input():
 
     if request.method == "GET":
         networkTemp = []
-        networkFile = open('static/data/Wiki.txt', 'r')  # ///////////////////////////////////注意修改
+        networkFile = open('static/data/Wiki.txt', 'r')
         # 设置节点数
         number_of_nodes = 105
 
