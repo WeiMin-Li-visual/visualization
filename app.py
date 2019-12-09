@@ -92,7 +92,7 @@ def forceDirect(networkTemp):
         node_coordinate[node].append(500 + 40 * (random.random() - 0.5))
         # node_coordinate[node].append(0)
         # node_coordinate[node].append(0)
-    for i in range(500):
+    for i in range(50):
         node_coordinate = updateReplusion(node_coordinate)
         node_coordinate = updateSpring(node_coordinate, networkTemp)
         node_coordinate = update(node_coordinate)
@@ -772,6 +772,172 @@ def input():
         active_node = influence_spread(data, method)  # 保存激活的节点
         active_records = json.dumps(active_node)
         return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
+
+    collectiveInfluenceComparison
+@app.route('/collectiveInfluenceComparison', methods=["GET", "POST"])
+def collectiveInfluenceComparison():
+    import random
+    import json
+    # 读取数据
+    global networkWeight
+    global graph_data
+
+    def influence_spread(seed, m):
+        """
+        使用IC模型传播影响力
+        :param seed: 初始种子集合
+        :param m: 使用的概率设置方法
+        :return: 被激活的所有节点
+        """
+        active = seed
+        start = 0
+        end = len(seed)
+        while start != end:
+            for node in active[start:end]:
+                for i in range(105):
+                    if networkWeight[m][node][i] != 0:
+                        if i not in active and random.random() < networkWeight[m][node][i]:
+                            active.append(i)
+            start = end
+            end = len(active)
+        return active
+
+
+    def calculateSingleSet(method, temp):
+        '''
+        计算单个集合的影响力
+        :param method:使用的概率设置方法
+        :param temp:输入的种子集合
+        :return active_records:激活节点
+        :return err:错误信息
+        '''
+        err = "false"  # 返回错误信息
+        if method != "":
+            if len(method) != 1:
+                err = "请勿在方法栏输入多个值"
+            elif '0'<method<'9':
+                method = int(method)
+                if method > 3 or method < 1:
+                    err = "方法为1-3的整数"
+            else:
+                err="方法为1-3的整数"
+        else:
+            err = "请输入方法"
+        if len(temp) == 0:
+            err = "请输入节点信息"
+        if err != "false":
+            active_records = json.dumps([])
+            return active_records, err
+        data = []
+        method -= 1
+        s = ""
+        for c in temp:
+            if c == "，":
+                s += ","
+            else:
+                s += c
+        s=set(s.split(","))
+        for c in s:
+            if c.isdigit() and c != ',' and c!='，':
+                c = int(c)
+                if 0 <= c <= 104 and type(c) == int:
+                    data.append(c)
+                else:
+                    err = "节点序号应为0-104的整数"
+            elif c != ',' and c!='，':
+                err = "节点序号应为0-104的整数"
+                active_records = json.dumps([])
+                return active_records, err
+        active_node = influence_spread(data, method)  # 保存激活的节点
+        active_records = json.dumps(active_node)
+        return active_records, err
+
+    if request.method == "GET":
+        networkTemp = []
+        networkFile = open('static/data/Wiki.txt', 'r')
+        # 设置节点数
+        number_of_nodes = 105
+
+        for line in networkFile.readlines():
+            linePiece = line.split()
+            networkTemp.append([int(linePiece[0]), int(linePiece[1])])
+        # 初始化权重矩阵
+        networkWeight = []
+        for i in range(3):
+            networkWeight.append([])
+            for j in range(number_of_nodes):
+                networkWeight[i].append([])
+                for k in range(number_of_nodes):
+                    networkWeight[i][j].append(0)
+        # 设置权重
+        # 边的权重有三种设置方式，一种是从[0.1, 0.01, 0.001]中随机选一个，一种是都固定0.1，一种是节点的入度分之一
+        probability_list = [0.1, 0.01, 0.001]
+        for linePiece in networkTemp:
+            networkWeight[0][linePiece[0] - 1][linePiece[1] - 1] = random.choice(probability_list)
+            networkWeight[1][linePiece[0] - 1][linePiece[1] - 1] = 0.1
+        for node in range(number_of_nodes):
+            degree = 0
+            for iteration in range(number_of_nodes):
+                if iteration != node:
+                    if networkWeight[1][iteration][node]:
+                        degree = degree + 1
+            for iteration in range(number_of_nodes):
+                if iteration != node:
+                    if networkWeight[1][iteration][node]:
+                        networkWeight[2][iteration][node] = 1 / degree
+        networkFile.close()
+        # 设置传给前端的节点数据边数据的json串
+        node_coordinate = forceDirect(networkTemp)
+        graph_data_json = {}
+        nodes_data_json = []
+        for node in range(number_of_nodes):
+            nodes_data_json.append({})
+            nodes_data_json[node]['attributes'] = {}
+            nodes_data_json[node]['attributes']['modularity_class'] = 0
+            nodes_data_json[node]['id'] = str(node)
+            nodes_data_json[node]['category'] = 0
+            nodes_data_json[node]['itemStyle'] = ''
+            nodes_data_json[node]['label'] = {}
+            nodes_data_json[node]['label']['normal'] = {}
+            nodes_data_json[node]['label']['normal']['show'] = 'false'
+            nodes_data_json[node]['name'] = str(node)
+            nodes_data_json[node]['symbolSize'] = 35
+            nodes_data_json[node]['value'] = 15
+            nodes_data_json[node]['x'] = node_coordinate[node][0]
+            nodes_data_json[node]['y'] = node_coordinate[node][1]
+        links_data_json = []
+        for link in networkTemp:
+            links_data_json.append({})
+            links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
+            links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
+            links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
+            links_data_json[len(links_data_json) - 1]['name'] = 'null'
+            links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
+            links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
+        graph_data_json['nodes'] = nodes_data_json
+        graph_data_json['links'] = links_data_json
+        graph_data = json.dumps(graph_data_json)
+        err1 = "true"
+        err2 = "true"
+        active_records1 = json.dumps([])
+        active_records2 = json.dumps([])
+        temp1 = ""
+        temp2 = ""
+        return render_template('collectiveInfluenceComparison.html', graph_data=graph_data,
+                               active_records1=active_records1,active_records2=active_records2, err1=err1, err2=err2,
+                               temp1=temp1, temp2=temp2)
+    else:
+        err1 = "false"  # 返回错误信息
+        err2 = "false"  # 返回错误信息
+        temp1 = request.form.get('value1')
+        method1 = request.form.get('method1')
+        active_records1, err1 = calculateSingleSet(method1, temp1)
+        temp2 = request.form.get('value2')
+        method2 = request.form.get('method2')
+        active_records2, err2 = calculateSingleSet(method2, temp2)
+        return render_template('collectiveInfluenceComparison.html', graph_data=graph_data,
+                               active_records1=active_records1,active_records2=active_records2, err1=err1, err2=err2,
+                               temp1=temp1, temp2=temp2)
 
 
 if __name__ == '__main__':
