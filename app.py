@@ -92,7 +92,7 @@ def forceDirect(networkTemp):
         node_coordinate[node].append(500 + 40 * (random.random() - 0.5))
         # node_coordinate[node].append(0)
         # node_coordinate[node].append(0)
-    for i in range(50):
+    for i in range(500):
         node_coordinate = updateReplusion(node_coordinate)
         node_coordinate = updateSpring(node_coordinate, networkTemp)
         node_coordinate = update(node_coordinate)
@@ -773,7 +773,7 @@ def input():
         active_records = json.dumps(active_node)
         return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
 
-    collectiveInfluenceComparison
+#集合影响力对比
 @app.route('/collectiveInfluenceComparison', methods=["GET", "POST"])
 def collectiveInfluenceComparison():
     import random
