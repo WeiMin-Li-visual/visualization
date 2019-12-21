@@ -7,98 +7,15 @@
 <body style="height: 100%; margin: 0">
 <div id="container" style="height: 100%"></div>
 <script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript" src="/static/js/function.js"></script>
 <script type="text/javascript">
-	var dom = document.getElementById("container");
-	var myChart = echarts.init(dom);
-	var app = {};
-	var graph = {{ graph_data | tojson }}
-		graph = JSON.parse(graph)
-	var categories = [];
-	categories[0] = {
-		name: '其它',
-		itemStyle:{
-			color: '#2f4554'
-		}
-	}
-	categories[1] = {
-        name: '当前节点',
-        itemStyle: {
-            color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [{
-                    offset: 0, color: 'yellow'
-                }, {
-                    offset: 1, color: 'blue'
-                }]
-            }
-        }
-    };
-	graph.nodes.forEach(function (node) {
-        node.itemStyle = null;
-        node.symbolSize = 15;
-        node.value = node.symbolSize;
-        node.category = node.attributes.modularity_class;
-        node.draggable = true;
-    });
-	var option = {
-        title: {
-            text: 'Les Miserables',
-            subtext: 'Default layout',
-            top: 'bottom',
-            left: 'right'
-        },
-        tooltip: {},
-        legend: [{
-            // selectedMode: 'single',
-            data: categories.map(function (a) {
-                return a.name;
-            })
-        }],
-        animationDuration: 1500,
-        animationEasingUpdate: 'quinticInOut',
-        series: [
-            {
-                name: 'Les Miserables',
-                type: 'graph',
-                layout: 'none',
-                data: graph.nodes,
-                links: graph.links,
-                categories: categories,
-                roam: true,
-                animation: false,
-                focusNodeAdjacency: true,
-                itemStyle: {
-                    normal: {
-                        borderColor: '#fff',
-                        borderWidth: 1,
-                        shadowBlur: 10,
-                        shadowColor: 'rgba(0, 0, 0, 0.3)'
-                    }
-                },
-                label: {
-                    position: 'right',
-                    formatter: '{b}'
-                },
-                lineStyle: {
-                    color: 'source',
-                    curveness: 0.3
-                },
-                emphasis: {
-                    lineStyle: {
-                        width: 10
-                    }
-                },
-                force: {
-                    repulsion: 270
-                }
-            }
-        ]
-    };
-	myChart.setOption(option);
+    var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var option;
+    var graph = {{ graph_data | tojson }}//获取后端返回的图数据
+    graph = init_graph(graph);  //初始化图数据
+    option = init_option(graph);//初始化属性
+    myChart.setOption(option);//执行该语句就可以根据你设置的属性进行图的生成
 	
 	//显示page_rank算法的计算过程
 	var influences = {{ influences }};
@@ -123,9 +40,7 @@
 		s += '当前节点为' + node_now + ',影响力为：' + influences[iter][node_now] + '\n'
 		myChart.setOption({
 			title: {
-				subtext: s,
-				top: 'top',
-				left: 'left'
+				subtext: s
 			},
 			series: [
 				{
@@ -152,9 +67,7 @@
 			myChart.setOption({
 				title: {
 					text: '达到迭代终止条件，总迭代次数为：' + max_iter + '\n影响力最大的节点是：' + max_inf_node,
-					subtext: '其影响力为：' + max_influence,
-					top: 'top',
-					left: 'left'
+					subtext: '其影响力为：' + max_influence
 				},
 				series: [
 					{
