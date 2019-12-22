@@ -5,7 +5,7 @@ init_graph = function(graph){
     graph.nodes.forEach(function (node) {
         node.itemStyle = null;
         node.symbolSize = 15;
-        node.value = node.symbolSize;
+        // node.value = node.symbolSize;
         node.category = node.attributes.modularity_class;
         node.draggable = true;
     });
@@ -16,28 +16,23 @@ init_option = function(graph){
     var option;
     var categories = [];
     categories[0] = {
-        name: '未激活节点',
-        itemStyle: {
-            color: '#2f4554'
-        }
-    }
-    categories[1] = {
-        name: '激活节点',
-        itemStyle: {
-            color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [{
-                    offset: 0, color: 'yellow'
-                }, {
-                    offset: 1, color: 'blue'
-                }]
+            name: '未激活节点',
+            itemStyle: {
+                color: '#2f4554',
+                opacity: 0.9, //不透明度
             }
         }
-    };
+        categories[1] = {
+            name: '激活节点',
+            itemStyle: {
+                color: '#009688',
+                opacity: 1, //不透明度
+            },
+            label: {
+                fontSize: 20,
+            },
+
+        };
     //设置要生成的图的相关属性
     option = {
         title: {
@@ -80,7 +75,7 @@ init_option = function(graph){
                     formatter: '{b}'
                 },
                 lineStyle: {
-                    color: 'source',
+                    color: 'rgba(0, 0, 0, 0.7)',
                     curveness: 0.3
                 },
                 emphasis: {

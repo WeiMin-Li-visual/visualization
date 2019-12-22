@@ -122,7 +122,7 @@ def init_network(data_path):
             'label': {'normal': {'show': 'false'}},
             'name': str(node),
             'symbolSize': 35,
-            'value': 15,
+            'value': 111,
             'x': node_coordinate[node][0],
             'y': node_coordinate[node][1]
         })
@@ -182,15 +182,23 @@ def set_influence(seed, m, networkWeight, number_of_nodes):
     active = seed
     start = 0
     end = len(seed)
+    active_num=[]
     while start != end:
         for node in active[start:end]:
+            temp_active_nodes = []
             for i in range(number_of_nodes):
                 if networkWeight[m][node][i] != 0:
                     if i not in active and random.random() < networkWeight[m][node][i]:
                         active.append(i)
+                        temp_active_nodes.append(i)
+            active_num.append(len(temp_active_nodes))
+
         start = end
         end = len(active)
-    return active
+    print('active_num',active_num)
+    #print(active)
+    return active,active_num
+
 
 app = Flask(__name__)
 app.secret_key = 'lisenzzz'
@@ -206,21 +214,31 @@ def hello_world():
 def basic_ic_1():
     # 初始化权重矩阵
     networkWeight = init_networkWeight(networkTemp, number_of_nodes)
-
     # 执行贪心算法找影响力最大的节点
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
+    active_nums = []
+    graph_data1 = json.loads(graph_data)
     for node in range(number_of_nodes):
         active_records.append([])
-        active_records[node] = set_influence([node], 1, networkWeight, number_of_nodes)  # 把这个节点的模拟结果存起来
+        active_nums.append([])
+        active_records[node],active_nums[node]= set_influence([node], 1, networkWeight, number_of_nodes)  # 把这个节点的模拟结果存起来
         influence = len(active_records[node])
+        graph_data1['nodes'][node]['value']=influence
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
+    # print(active_nums)
+    # print(active_records)
+    # print(networkTemp)
     active_records = json.dumps(active_records)
+    active_nums=json.dumps(active_nums)
+    networkTemp1=json.dumps(networkTemp)
+    graph_data1=json.dumps(graph_data1)
     # 把你需要的数据给对应的页面
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records, max_node_influence=
-    max_node_influence, max_influence_node=max_influence_node)
+
+    return render_template('common_template.html', graph_data=graph_data1, active_records=active_records, max_node_influence=
+    max_node_influence, max_influence_node=max_influence_node, active_nums=active_nums, networkTemp=networkTemp1,method_type=1)
 
 
 # 选择单个影响力最大的种子基于ic模型（每个节点模拟十次）
@@ -232,21 +250,31 @@ def basic_ic_10():  # 胡莎莎
     # 执行贪心算法找影响力最大的节点
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
+    active_nums=[]
+    graph_data1 = json.loads(graph_data)
     for node in range(number_of_nodes):
         active_records.append([])
+        active_nums.append([])
         influence = 0
         for simulation_count in range(0, 10):  # 模拟10次
             active_records[node].append([])
-            active_records[node][simulation_count] = set_influence([node], 1, networkWeight,
+            active_nums[node].append([])
+            active_records[node][simulation_count] ,active_nums[node][simulation_count] = set_influence([node], 1, networkWeight,
                                                                    number_of_nodes)  # 把这个节点的模拟结果存起来
             influence += len(active_records[node][simulation_count])
+        graph_data1['nodes'][node]['value'] = influence/10#模拟十次的平均影响力
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
+    print(active_records)
+    print(active_nums)
     active_records = json.dumps(active_records)
+    active_nums = json.dumps(active_nums)
+    networkTemp1 = json.dumps(networkTemp)
+    graph_data1=json.dumps(graph_data1)
     # 把你需要的数据给对应的页面
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records, max_node_influence=
-    max_node_influence, max_influence_node=max_influence_node)
+    return render_template('common_template.html', graph_data=graph_data1, active_records=active_records, max_node_influence=
+    max_node_influence, max_influence_node=max_influence_node,active_nums=active_nums, networkTemp=networkTemp1,method_type=2)
 
 
 # 选择单个影响力最大的种子基于lt模型（每个节点模拟十次）
@@ -310,6 +338,7 @@ def basic_lt_1():
     # 基于LT模型，找影响力最大的节点
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
+    graph_data1=json.loads(graph_data)
     method = 1  # 选择使用哪种权重进行
     for node in range(number_of_nodes):  # 遍历所有的节点，判断影响力
         active_records.append([])
@@ -323,14 +352,16 @@ def basic_lt_1():
             active_records[node].append(l)  # 保存被激活的节点，第一个参数为列表
             count_influence += len(l)
         influence = count_influence / stimulate_round
+        graph_data1['nodes'][node]['value'] = influence
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
 
     active_records = json.dumps(active_records)
+    graph_data1=json.dumps(graph_data1)
     # 把你需要的数据给对应的页面
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records, max_node_influence=
-    max_node_influence, max_influence_node=max_influence_node)
+    return render_template('common_template.html', graph_data=graph_data1, active_records=active_records, max_node_influence=
+    max_node_influence, max_influence_node=max_influence_node,active_nums=0,networkTemp=networkTemp,method_type=3)
 
 
 # 选择单个影响力最大的种子基于page rank
@@ -394,25 +425,33 @@ def degree():
     adjacencyMatrix = np.zeros([number_of_nodes, number_of_nodes], dtype=int)
     for i in range(len(networkTemp)):
         adjacencyMatrix[int(networkTemp[i][0] - 1)][int(networkTemp[i][1] - 1)] = 1
-        adjacencyMatrix[int(networkTemp[i][1] - 1)][int(networkTemp[i][0] - 1)] = 1
+        ##adjacencyMatrix[int(networkTemp[i][1] - 1)][int(networkTemp[i][0] - 1)] = 1
     active_records = []  # 用来存放每个节点的模拟结果
     for i in range(number_of_nodes):
         active_records.append([])
+        active_records[i].append(i)#将当前节点放入激活列表中
         for j in range(number_of_nodes):
             if (adjacencyMatrix[i][j] == 1):
                 active_records[i].append(j)
     active_records = json.dumps(active_records)
 
+    graph_data1=json.loads(graph_data)
+
     # 存放各个节点的度
     nodeDegree = []
+    influence=0
     for i in range(len(adjacencyMatrix)):
-        nodeDegree.append(sum(adjacencyMatrix[i]))
+        influence=sum(adjacencyMatrix[i])
+        nodeDegree.append(influence)
+        graph_data1['nodes'][i]['value'] = str(influence)
+
     # 最大影响力节点
     max_influence_node = nodeDegree.index(max(nodeDegree)) + 1
     # 最大影响力节点的度
     max_node_influence = max(nodeDegree)
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records,
-                           max_node_influence=max_node_influence, max_influence_node=max_influence_node)
+    graph_data1=json.dumps(graph_data1)
+    return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
+                           max_node_influence=max_node_influence, max_influence_node=max_influence_node,active_nums=0,networkTemp=networkTemp,method_type=4)
 
 
 @app.route('/input', methods=["GET", "POST"])

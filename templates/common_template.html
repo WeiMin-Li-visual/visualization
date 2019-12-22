@@ -8,7 +8,7 @@
 <script type="text/javascript" src="/static/js/echarts.js"></script>
 <script type="text/javascript" src="/static/js/function.js"></script>
 <script type="text/javascript">
-	
+
     var dom = document.getElementById("container");
     var myChart = echarts.init(dom);
     var option;
@@ -16,25 +16,45 @@
     graph = init_graph(graph);  //初始化图数据
     option = init_option(graph);//初始化属性
     myChart.setOption(option);//执行该语句就可以根据你设置的属性进行图的生成
-    
+
     var active_records = {{ active_records | tojson }};
     active_records = JSON.parse(active_records);
+    console.log('jshdhfdj')
+    var method_type={{ method_type }};//获取使用的哪种方法，方便后面的节点激活过程的显示
+    if(method_type==1||method_type==2){
+        var active_nums = {{ active_nums | tojson }};
+        active_nums = JSON.parse(active_nums);
+
+        var networkTemp = {{ networkTemp | tojson }};
+        networkTemp = JSON.parse(networkTemp);
+    }
+
     var max_influence_node={{max_influence_node}};
     var max_node_influence={{max_node_influence}};
-    var method = is_one_stimulate(active_records);	
+
+    var method = is_one_stimulate(active_records);
     var node_no = 0;		//用来记录当前显示的节点
     var record_node_no = 0;	//记录当前被激活的节点数
     var stimulate_round=0;	//记录模拟的次数
     var node_no_acv;		//记录节点node_no激活的节点
+    var active_source_node=0;//记录当前去激活的节点
+    var activated_node=0;//记录被激活的节点
+    var index=0;//记录激活数量的列表 active_nums
+    var num=0;//记录激活的数量
+    var count=0;//记录每个索引位置index的值的大小
+    var current_link=0;//记录当前的激活边
+    var links_arr=new Array()//存放每个节点所有的激活边
     var s="";
     var text = "节点0的激活过程";	//标题
     var subtext;				//副标题
+
+
     node_no_acv = record_node_num(node_no,stimulate_round,active_records);
     if(method == 1) 	//记录副标题
         subtext="当前节点的影响力为:"+active_records[0].length+"\n";
     else
         subtext="当前节点第1次模拟的影响力为:"+active_records[0][0].length+"\n";
-    
+
     update_show(text,subtext,myChart);
     interval_no = setInterval(function () {
         if(node_no==active_records.length)//所有节点显示完毕后，显示影响力最大的节点
@@ -43,36 +63,108 @@
             {
                 active_records[max_influence_node].forEach(function(node){
                     graph.nodes[node].category=1;
-                    graph.nodes[node].symbolSize=30;
+                    graph.nodes[node].symbolSize=25;
                 })
                 subtext="影响力为"+max_node_influence;
             }
             else//10次模拟：显示平均的影响力
                 subtext="平均影响力为"+max_node_influence;
             graph.nodes[max_influence_node].category=1;
-            graph.nodes[max_influence_node].symbolSize=30;
+            graph.nodes[max_influence_node].symbolSize=25;
             text = "影响力最大的节点为："+max_influence_node;
             update_show(text,subtext,myChart);
             clearInterval(interval_no);// 跳出setInterval，结束循环
         }
-        
-        graph.nodes[node_no_acv[record_node_no]].symbolSize=30;
+
+     if(method_type==1) {{# 当前的方法为ic模拟1次 #}
+         if (Object.keys(active_records[node_no]).length != 1 && record_node_no != 0) {
+             count = active_nums[node_no][index];//激活节点中每个节点激活别的节点的数量
+             console.log('count',count)
+             if (num < count) {
+                 num++;
+             } else {
+                 num = 1;
+                 index++;
+             }
+             count = active_nums[node_no][index];
+             while (count==0) {//若当前节点没有激活其他节点，则索引向前移
+                 index+=1
+                 count = active_nums[node_no][index];
+             }
+             active_source_node = active_records[node_no][index];//去激活的节点source
+             activated_node = active_records[node_no][record_node_no];//被激活的节点target
+             console.log(active_source_node, '-->', activated_node)
+             //找出当前的激活路径
+             for (var i = 0; i < Object.keys(networkTemp).length; i++) {
+                 if ((active_source_node == networkTemp[i][0] - 1 && activated_node == networkTemp[i][1] - 1) || (active_source_node == networkTemp[i][1] - 1 && activated_node == networkTemp[i][0] - 1)) {
+                     current_link = i;
+                     links_arr.push(current_link);
+                     break;
+                 }
+             }
+             graph.links[current_link].lineStyle.width = 6;//设置当前激活路径的宽度
+             graph.links[current_link].lineStyle.color = 'blue';//设置当前激活路径的颜色
+
+             //current_link=getLinkIdBySourceAndTarget(graph, active_source_node, activated_node)
+
+         }
+     }
+     if(method_type==2){# 当前的方法为ic模拟十次 #}
+          if (Object.keys(active_records[node_no][stimulate_round]).length != 1 && record_node_no != 0) {
+             count = active_nums[node_no][stimulate_round][index];//激活节点中每个节点激活别的节点的数量
+             if (num < count) {
+                 num++;
+             } else {
+                 num = 1;
+                 index++;
+             }
+              count = active_nums[node_no][stimulate_round][index];
+             while (count==0) {//若当前节点没有激活其他节点，则索引向前移
+                 index+=1
+                 count = active_nums[node_no][stimulate_round][index];
+             }
+             active_source_node = active_records[node_no][stimulate_round][index];//去激活的节点source
+             activated_node = active_records[node_no][stimulate_round][record_node_no];//被激活的节点target
+             console.log(active_source_node, '-->', activated_node)
+             //找出当前的激活路径
+             for (var i = 0; i < Object.keys(networkTemp).length; i++) {
+                 if ((active_source_node == networkTemp[i][0] - 1 && activated_node == networkTemp[i][1] - 1) || (active_source_node == networkTemp[i][1] - 1 && activated_node == networkTemp[i][0] - 1)) {
+                     current_link = i;
+                     links_arr.push(current_link);
+                     break;
+                 }
+             }
+             graph.links[current_link].lineStyle.width = 6;//设置当前激活路径的宽度
+             graph.links[current_link].lineStyle.color = 'blue';//设置当前激活路径的颜色
+
+             //current_link=getLinkIdBySourceAndTarget(graph, active_source_node, activated_node)
+         }
+     }
+
+        graph.nodes[node_no_acv[record_node_no]].symbolSize=25;
         graph.nodes[node_no_acv[record_node_no]].category=1;
         text = '节点'+node_no+'的激活过程';
         update_show(text,subtext,myChart);
         record_node_no++;
         if(record_node_no==node_no_acv.length)
         //10次模拟：当前模拟结束，进行下一次模拟，1次模拟：当前节点的影响力显示完毕，显示下一个节点	清除上个节点的记录
-        {    
+        {
             node_no_acv.forEach(function(node){
                 graph.nodes[node].category=0;
                 graph.nodes[node].symbolSize=15;
             })
+
+            for(var link=0;link<links_arr.length;link++){
+                 graph.links[links_arr[link]].lineStyle.width=1;
+                 graph.links[links_arr[link]].lineStyle.color='rgba(0, 0, 0, 0.7)';
+            }
+            links_arr=[];//显示下一个节点的激活过程时，将边的数组清空
+
             if(method == 1)	//1次模拟：
             {
             	node_no++;	//节点自加
             }
-            else 			//10次模拟 
+            else 			//10次模拟
             {
             	stimulate_round++;
             	if(stimulate_round==10)	//
@@ -85,13 +177,15 @@
             //更新节点node_no所激活的节点
             node_no_acv = record_node_num(node_no,stimulate_round,active_records);
             record_node_no=0;
+            index=0;
+            num=0;
             if(method != 1) s="第"+(stimulate_round+1)+"次模拟";
             else subtext="";
             if(node_no<=104)
                 subtext+="当前节点"+s+"的影响力为:"+node_no_acv.length+"\n";
-        }       
+        }
     },1500)
-    
+
     function record_node_num(num,round,active_records)//节点num的激活记录
     {
         if(typeof(active_records[0][0])=="number")
@@ -109,7 +203,7 @@
     function update_show(text,subtext,myChart)//更新画面
     {
         myChart.setOption({
-           title:{	
+           title:{
                 text:text,
                 subtext: subtext
            },
