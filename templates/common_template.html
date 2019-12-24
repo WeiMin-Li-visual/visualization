@@ -69,60 +69,63 @@
             update_show(text,subtext,myChart);
             clearInterval(interval_no);// 跳出setInterval，结束循环
         }
-         if (Object.keys(record_node_num(node_no,stimulate_round,active_records)).length != 1 && record_node_no != 0) {
+        else{
+            if (Object.keys(record_node_num(node_no,stimulate_round,active_records)).length != 1 && record_node_no != 0) {
 
-             links_arr.push(record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]);
-             graph.links[record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]].lineStyle.width = 6;//设置当前激活路径的宽度
-             graph.links[record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]].lineStyle.color = 'blue';//设置当前激活路径的颜色
+                links_arr.push(record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]);
+                graph.links[record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]].lineStyle.width = 6;//设置当前激活路径的宽度
+                graph.links[record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]].lineStyle.color = 'blue';//设置当前激活路径的颜色
 
-             //current_link=getLinkIdBySourceAndTarget(graph, active_source_node, activated_node)
+                //current_link=getLinkIdBySourceAndTarget(graph, active_source_node, activated_node)
 
-         }
-        graph.nodes[node_no_acv[record_node_no]].symbolSize=25;
-        graph.nodes[node_no_acv[record_node_no]].category=1;
-        text = '节点'+node_no+'的激活过程';
-        update_show(text,subtext,myChart);
-        record_node_no+=2;
-        if(record_node_no==node_no_acv.length)
-        //10次模拟：当前模拟结束，进行下一次模拟，1次模拟：当前节点的影响力显示完毕，显示下一个节点	清除上个节点的记录
-        {
-            for(var i=0;i<node_no_acv.length;i+=2){
-                graph.nodes[node_no_acv[i]].category=0;
-                graph.nodes[node_no_acv[i]].symbolSize=15;
             }
-            
-
-            for(var link=0;link<links_arr.length;link++){
-                 graph.links[links_arr[link]].lineStyle.width=1;
-                 graph.links[links_arr[link]].lineStyle.color='rgba(0, 0, 0, 0.7)';
-            }
-            links_arr=[];//显示下一个节点的激活过程时，将边的数组清空
-
-            if(method == 1)	//1次模拟：
+            graph.nodes[node_no_acv[record_node_no]].symbolSize=25;
+            graph.nodes[node_no_acv[record_node_no]].category=1;
+            text = '节点'+node_no+'的激活过程';
+            update_show(text,subtext,myChart);
+            record_node_no+=2;
+            if(record_node_no==node_no_acv.length)
+            //10次模拟：当前模拟结束，进行下一次模拟，1次模拟：当前节点的影响力显示完毕，显示下一个节点	清除上个节点的记录
             {
-            	node_no++;	//节点自加
+                for(var i=0;i<node_no_acv.length;i+=2){
+                    graph.nodes[node_no_acv[i]].category=0;
+                    graph.nodes[node_no_acv[i]].symbolSize=15;
+                }
+                
+
+                for(var link=0;link<links_arr.length;link++){
+                    graph.links[links_arr[link]].lineStyle.width=1;
+                    graph.links[links_arr[link]].lineStyle.color='rgba(0, 0, 0, 0.7)';
+                }
+                links_arr=[];//显示下一个节点的激活过程时，将边的数组清空
+
+                if(method == 1)	//1次模拟：
+                {
+                    node_no++;	//节点自加
+                }
+                else 			//10次模拟
+                {
+                    stimulate_round++;
+                    if(stimulate_round==10)	//
+                    {
+                        stimulate_round=0;
+                        node_no++;
+                        subtext="";
+                    }
+                }
+                //更新节点node_no所激活的节点
+                if(node_no<=104){
+                    node_no_acv = record_node_num(node_no,stimulate_round,active_records);
+                    record_node_no=0;
+                    index=0;
+                    num=0;
+                    if(method != 1) s="第"+(stimulate_round+1)+"次模拟";
+                    else subtext="";
+                    subtext+="当前节点"+s+"的影响力为:"+node_no_acv.length/2+"\n";
+                }
             }
-            else 			//10次模拟
-            {
-            	stimulate_round++;
-            	if(stimulate_round==10)	//
-            	{
-	                stimulate_round=0;
-	                node_no++;
-	                subtext="";
-            	}
-            }
-            //更新节点node_no所激活的节点
-            node_no_acv = record_node_num(node_no,stimulate_round,active_records);
-            record_node_no=0;
-            index=0;
-            num=0;
-            if(method != 1) s="第"+(stimulate_round+1)+"次模拟";
-            else subtext="";
-            if(node_no<=104)
-                subtext+="当前节点"+s+"的影响力为:"+node_no_acv.length/2+"\n";
         }
-    },1500)
+    },10)
 
     function record_node_num(num,round,active_records)//节点num的激活记录
     {
@@ -130,6 +133,7 @@
             return active_records[num];
         else
             return active_records[num][round];
+
     }
     function update_show(text,subtext,myChart)//更新画面
     {
