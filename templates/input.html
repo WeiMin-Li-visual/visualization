@@ -50,20 +50,16 @@
 <script type="text/javascript" src="/static/js/echarts.js"></script>
 <script type="text/javascript" src="/static/js/function.js"></script>
 <script type="text/javascript">
-    layui.use('form', function(){
-      var form = layui.form;
-
-      //各种基于事件的操作，下面会有进一步介绍
-    });
-
+    
     var dom = document.getElementById("container");
     var myChart = echarts.init(dom);
     var option;
     var graph = {{ graph_data | tojson }}//获取后端返回的图数据
+    var influence={{influence}}
     graph = init_graph(graph);  //初始化图数据
     option = init_option(graph);//初始化属性
     myChart.setOption(option);//执行该语句就可以根据你设置的属性进行图的生成
-
+    var step=1
     var err={{err|tojson}};
     if(err=="false")
     {
@@ -74,7 +70,7 @@
         myChart.setOption({
             title: {
                 text: '输入集合的激活过程',
-                subtext: '输入集合的影响力是' + active_records.length,
+                subtext: '输入集合的影响力是' + influence,
                 top: 'top',
                 left: 'left'
             },
@@ -85,14 +81,24 @@
             myChart.setOption({
                 series: [
                 {
-                    data: graph.nodes,
+                   data: graph.nodes,
                     links: graph.links
                 }
             ]
             })
-            record_node_no+=1
-             if(record_node_no==active_records.length)//当全部节点显示完毕后跳出循环
+            record_node_no+=step
+            
+            if(step==2){
+              if(record_node_no>=active_records.length)//当全部节点显示完毕后跳出循环
                 clearInterval(interval_no);
+              else{
+              graph.links[active_records[record_node_no+1]].lineStyle.width=6;
+              graph.links[active_records[record_node_no+1]].lineStyle.color='blue';
+              }
+            }
+            if(active_records[record_node_no+1]==-1)
+              step=2
+             
         }, 1500);
 
     }

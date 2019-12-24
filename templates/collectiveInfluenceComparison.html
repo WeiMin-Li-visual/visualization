@@ -93,24 +93,25 @@
               }
            });
         });
-
+        var influence1={{influence1}};
         var dom1 = document.getElementById("container1");
         var graph1 = {{ graph_data | tojson }}
         var err1={{ err1 | tojson }};
         var active_records1 = {{ active_records1 | tojson }};
         var temp1 = {{ temp1 | tojson }};
-        drawGragh(dom1,graph1,err1,active_records1,temp1,1);
+        drawGragh(dom1,graph1,err1,active_records1,temp1,1,influence1);
 
+        var influence2={{influence2}}
         var dom2 = document.getElementById("container2");
         var graph2 = {{ graph_data | tojson }}
         var err2={{ err2 | tojson }};
         var active_records2 = {{ active_records2 | tojson }};
         var temp2 = {{ temp2 | tojson }};
-        drawGragh(dom2,graph2,err2,active_records2,temp2,2);
+        drawGragh(dom2,graph2,err2,active_records2,temp2,2,influence2);
 
-        function drawGragh(dom,graph,err,active_records,temp,no){
+        function drawGragh(dom,graph,err,active_records,temp,no,influence){
             var myChart = echarts.init(dom);
-
+            var step=1;
             var option;
             graph = init_graph(graph);  //初始化图数据
             option = init_option(graph);//初始化属性
@@ -123,25 +124,34 @@
                 myChart.setOption({
                     title: {
                         text: '输入集合'+no+':'+temp+'的激活过程',
-                        subtext: '输入集合的影响力是' + active_records.length,
+                        subtext: '输入集合的影响力是' + influence,
                         top: 'top',
                         left: 'left'
                     },
                 });
                 var interval_no = setInterval(function () {
-                    graph.nodes[active_records[record_node_no]].category = 1;
-                    graph.nodes[active_records[record_node_no]].symbolSize = 25;
-                    myChart.setOption({
-                        series: [
-                        {
-                            data: graph.nodes,
-                            links: graph.links
-                        }
-                    ]
-                    })
-                    record_node_no+=1
-                     if(record_node_no==active_records.length)//当全部节点显示完毕后跳出循环
-                        clearInterval(interval_no);
+                  graph.nodes[active_records[record_node_no]].category = 1;
+                  graph.nodes[active_records[record_node_no]].symbolSize = 30;
+                  myChart.setOption({
+                      series: [
+                      {
+                        data: graph.nodes,
+                          links: graph.links
+                      }
+                  ]
+                  })
+                  record_node_no+=step
+                  
+                  if(step==2){
+                    if(record_node_no>=active_records.length)//当全部节点显示完毕后跳出循环
+                      clearInterval(interval_no);
+                    else{
+                    graph.links[active_records[record_node_no+1]].lineStyle.width=6;
+                    graph.links[active_records[record_node_no+1]].lineStyle.color='blue';
+                    }
+                  }
+                  if(active_records[record_node_no+1]==-1)
+                    step=2
                 }, 1500);
             }else{
                 if(err!="true"){
