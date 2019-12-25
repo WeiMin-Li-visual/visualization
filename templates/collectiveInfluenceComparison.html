@@ -27,16 +27,17 @@
             </div>
           </div>
           <div class="control">
-            <label class="layui-form-label">输入方法1</label>
-            <div class="layui-input-block">
-              <input type="text" name="method1" placeholder="请输入节点权重的设置方法" autocomplete="off" class="layui-input">
-                <i class="layui-icon layui-icon-about"
-                   title="边权重设置方法：
-1：从[0.1, 0.01, 0.001]中随机选一个；
-2：固定0.1；
-3：节点的入度分之一">
-                </i>
-            </div>
+              <label class="layui-form-label">选择算法1</label>
+                <div class="layui-input-block">
+                  <select name="method1" lay-verify="required">
+                    <option value=""></option>
+                    <option value="1">IC模型(1次）</option>
+                    <option value="2">IC模型(10次）</option>
+                    <option value="3">LT模型</option>
+                    <option value="4">pageRank算法</option>
+                    <option value="5">最大度算法</option>
+                  </select>
+                </div>
            </div>
             <div class="control">
                 <label class="layui-form-label">输入节点2</label>
@@ -46,16 +47,17 @@
                 </div>
           </div>
           <div class="control">
-            <label class="layui-form-label">输入方法2</label>
-            <div class="layui-input-block">
-              <input type="text" name="method2" placeholder="请输入节点权重的设置方法" autocomplete="off" class="layui-input">
-                <i class="layui-icon layui-icon-about"
-                   title="边权重设置方法：
-1：从[0.1, 0.01, 0.001]中随机选一个；
-2：固定0.1；
-3：节点的入度分之一">
-                </i>
-            </div>
+              <label class="layui-form-label">选择算法2</label>
+                <div class="layui-input-block">
+                  <select name="method2" lay-verify="required">
+                    <option value=""></option>
+                    <option value="1">IC模型(1次）</option>
+                    <option value="2">IC模型(10次）</option>
+                    <option value="3">LT模型</option>
+                    <option value="4">pageRank算法</option>
+                    <option value="5">最大度算法</option>
+                  </select>
+                </div>
           </div>
           <div class="layui-form-item" style="float:right;margin-right:4%;">
             <div class="layui-input-block">
@@ -81,78 +83,207 @@
               if(data.field.value1 == ""){
                 layer.msg("请输入节点集合1");
                 return false; //阻止表单跳转。如果需要表单跳转，去掉这段即可。
-              }else if(data.field.method1 == ""){
-                layer.msg("请输入方法1");
-                return false;
               }else if(data.field.value2 == ""){
                 layer.msg("请输入节点集合2");
-                return false;
-              }else if(data.field.method2 == ""){
-                layer.msg("请输入方法2");
                 return false;
               }
            });
         });
-        var influence1={{influence1}};
+
         var dom1 = document.getElementById("container1");
         var graph1 = {{ graph_data | tojson }}
         var err1={{ err1 | tojson }};
         var active_records1 = {{ active_records1 | tojson }};
-        var temp1 = {{ temp1 | tojson }};
-        drawGragh(dom1,graph1,err1,active_records1,temp1,1,influence1);
+        var temp1 = {{ seed1 | tojson }}; //输入的节点集合1
+        var method1 = {{ method1 | tojson }};
+        drawGragh(dom1,graph1,err1,active_records1,temp1,1,method1);
 
-        var influence2={{influence2}}
         var dom2 = document.getElementById("container2");
         var graph2 = {{ graph_data | tojson }}
         var err2={{ err2 | tojson }};
         var active_records2 = {{ active_records2 | tojson }};
-        var temp2 = {{ temp2 | tojson }};
-        drawGragh(dom2,graph2,err2,active_records2,temp2,2,influence2);
+        var temp2 = {{ seed2 | tojson }}; //输入的节点集合2
+        var method2 = {{ method2 | tojson }};
+        drawGragh(dom2,graph2,err2,active_records2,temp2,2,method2);
 
-        function drawGragh(dom,graph,err,active_records,temp,no,influence){
+        function drawGragh(dom,graph,err,active_records,seed,no,method){
             var myChart = echarts.init(dom);
-            var step=1;
+
             var option;
             graph = init_graph(graph);  //初始化图数据
             option = init_option(graph);//初始化属性
+            var categories = [];
+            categories[0] = {
+                name: '未激活节点',
+                itemStyle: {
+                    color: '#2f4554',
+                    opacity: 0.9, //不透明度
+                }
+            }
+            categories[1] = {
+                name: '激活节点',
+                itemStyle: {
+                    color: '#009688',
+                    opacity: 1, //不透明度
+                },
+                label: {
+                    fontSize: 20,
+                },
+            };
+            option.legend = [{
+                // selectedMode: 'single',
+                right: '10%', //图例的位置
+                data: categories.map(function (a) {
+                    return a.name;
+                })
+            }],
             myChart.setOption(option);//执行该语句就可以根据你设置的属性进行图的生成
-
             if(err=="false"){
                 var active_records = JSON.parse(active_records);
-                //下面通过setInterval函数进行不断从激活节点的记录中读取数据然后不断显示
-                var record_node_no = 0;//用来记录当前显示节点的记录的编号
-                myChart.setOption({
-                    title: {
-                        text: '输入集合'+no+':'+temp+'的激活过程',
-                        subtext: '输入集合的影响力是' + influence,
-                        top: 'top',
-                        left: 'left'
-                    },
-                });
-                var interval_no = setInterval(function () {
-                  graph.nodes[active_records[record_node_no]].category = 1;
-                  graph.nodes[active_records[record_node_no]].symbolSize = 30;
-                  myChart.setOption({
-                      series: [
-                      {
-                        data: graph.nodes,
-                          links: graph.links
-                      }
-                  ]
-                  })
-                  record_node_no+=step
-                  
-                  if(step==2){
-                    if(record_node_no>=active_records.length)//当全部节点显示完毕后跳出循环
-                      clearInterval(interval_no);
-                    else{
-                    graph.links[active_records[record_node_no+1]].lineStyle.width=6;
-                    graph.links[active_records[record_node_no+1]].lineStyle.color='blue';
+                if(method == 1){ //IC模型模拟一次
+                    var step=1
+                    var record_node_no = 0;//用来记录当前显示节点的记录的编号
+                    myChart.setOption({
+                        title: {
+                            text: '输入集合'+no+':'+seed+' IC模型模拟一次的激活过程',
+                            subtext: '输入集合的影响力是' + active_records.length,
+                            top: 'top',
+                            left: 'left'
+                        },
+                    });
+                    var interval_no = setInterval(function () {
+                        graph.nodes[active_records[record_node_no]].category = 1;
+                        graph.nodes[active_records[record_node_no]].symbolSize = 25;
+                        myChart.setOption({
+                            series: [{
+                                data: graph.nodes,
+                                links: graph.links
+                            }]
+                        })
+                        record_node_no+=1
+                         if(record_node_no==active_records.length)//当全部节点显示完毕后跳出循环
+                            clearInterval(interval_no);
+                    }, 1500);
+                }else if(method == 3 || method == 2){//LT或IC模型模拟10次
+                    var influence_LT = 0;
+                    for(var i=0;i<active_records.length;i++){ //计算平均影响力
+                        for(var j=0;j<active_records[i].length;j++){
+                            var active_records_i = new Array();
+                            for(var k=0;k < active_records[i][j].length;k++){
+                                if(active_records_i.indexOf(active_records[i][j][k]) < 0){
+                                    active_records_i.push(active_records[i][j][k]);
+                                }
+                            }
+                            influence_LT += active_records_i.length;
+                        }
                     }
-                  }
-                  if(active_records[record_node_no+1]==-1)
-                    step=2
-                }, 1500);
+                    influence_LT = influence_LT/active_records.length;
+                    var stimulate_round=0;	//记录模拟的次数
+                    var record_node_no = 0;//用来记录当前显示节点的记录的编号
+                    var title = '';
+                    if(method == 2){
+                        title = '输入集合'+no+':'+seed+' IC模型模拟十次的平均影响力是' + influence_LT;
+                    }else if(method == 3){
+                        title = '输入集合'+no+':'+seed+' LT模型模拟十次的平均影响力是' + influence_LT;
+                    }
+                    myChart.setOption({
+                            title: {
+                                text: title,
+                                top: 'top',
+                                left: 'left'
+                            },
+                            series: [{
+                                data: graph.nodes,
+                                links: graph.links
+                            }]
+                        })
+                    var active_records_i = new Array();
+                    var interval_no = setInterval(function () {
+                        if(record_node_no == 0){
+                            for(var i=0;i<active_records[stimulate_round].length;i++){
+                                for(var j=0;j<active_records.length;j++){
+                                    if(typeof(active_records[stimulate_round][i][j]) != 'undefined')
+                                        active_records_i.push(active_records[stimulate_round][i][j])
+                                }
+                            }
+                        }
+                        graph.nodes[active_records_i[record_node_no]].category = 1;
+                        graph.nodes[active_records_i[record_node_no]].symbolSize = 25;
+                        myChart.setOption({
+                            title: {
+                                text: title,
+                                subtext: '第'+(stimulate_round+1)+'次模拟的激活过程',
+                                top: 'top',
+                                left: 'left'
+                            },
+                            series: [{
+                                data: graph.nodes,
+                                links: graph.links
+                            }]
+                        })
+                        record_node_no+=1;
+                        if(record_node_no==active_records_i.length){
+                            stimulate_round++;
+                            record_node_no = 0;
+                            active_records_i.forEach(function(node){
+                                graph.nodes[node].category=0;
+                                graph.nodes[node].symbolSize=15;
+                            });
+                            active_records_i=[];
+                            if(stimulate_round==10){
+                                 clearInterval(interval_no);
+                            }
+                        }
+                    }, 1500);
+                }else if(method == 4){//pageRank算法
+                    var record_node_no = 0;//用来记录当前显示节点的记录的编号
+                    myChart.setOption({
+                        title: {
+                            text: '输入集合'+no+':'+seed+' 在pageRank算法下的影响力是' + active_records.toFixed(2),
+                            //subtext: '输入集合的影响力是' + active_records,
+                            top: 'top',
+                            left: 'left'
+                        },
+                    });
+                    var interval_no = setInterval(function () {
+                        graph.nodes[seed[record_node_no]].category = 1;
+                        graph.nodes[seed[record_node_no]].symbolSize = 25;
+                        myChart.setOption({
+                            series: [{
+                                data: graph.nodes,
+                                links: graph.links
+                            }]
+                        })
+                        record_node_no+=1
+                        if(record_node_no==seed.length)//当全部节点显示完毕后跳出循环
+                            clearInterval(interval_no);
+                    }, 1500);
+                }else if(method == 5){//最大度算法
+                    var record_node_no = 0;//用来记录当前显示节点的记录的编号
+                    myChart.setOption({
+                        title: {
+                            text: '输入集合'+no+':'+seed+' 在最大度算法下的影响力是' + active_records.length,
+                            //subtext: '输入集合的影响力是' + active_records.length,
+                            top: 'top',
+                            left: 'left'
+                        },
+                    });
+                    var interval_no = setInterval(function () {
+                        graph.nodes[active_records[record_node_no]].category = 1;
+                        graph.nodes[active_records[record_node_no]].symbolSize = 25;
+                        myChart.setOption({
+                            series: [
+                            {
+                                data: graph.nodes,
+                                links: graph.links
+                            }
+                        ]
+                        })
+                        record_node_no+=1
+                         if(record_node_no==active_records.length)//当全部节点显示完毕后跳出循环
+                            clearInterval(interval_no);
+                    }, 1500);
+                }
             }else{
                 if(err!="true"){
                     layui.use('layer', function(){

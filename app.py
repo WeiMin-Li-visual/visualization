@@ -145,7 +145,7 @@ def init_network(data_path):
 # 计算网络的权重矩阵
 def init_networkWeight(networkTemp, number_of_nodes):
     networkWeight = []
-    edgeNum = []#存储每条边在networkTemp中的序号
+    edgeNum = []  # 存储每条边在networkTemp中的序号
     for i in range(3):
         networkWeight.append([])
         for j in range(number_of_nodes):
@@ -159,12 +159,12 @@ def init_networkWeight(networkTemp, number_of_nodes):
         for j in range(number_of_nodes):
             edgeNum[i].append(0)
     probability_list = [0.1, 0.01, 0.001]
-    count=0
+    count = 0
     for linePiece in networkTemp:
         networkWeight[0][linePiece[0] - 1][linePiece[1] - 1] = random.choice(probability_list)
         networkWeight[1][linePiece[0] - 1][linePiece[1] - 1] = 0.1
         edgeNum[linePiece[0] - 1][linePiece[1] - 1] = count
-        count+=1
+        count += 1
     for node in range(number_of_nodes):
         degree = 0
         for iteration in range(number_of_nodes):
@@ -175,10 +175,10 @@ def init_networkWeight(networkTemp, number_of_nodes):
             if iteration != node:
                 if networkWeight[1][iteration][node]:
                     networkWeight[2][iteration][node] = 1 / degree
-    return networkWeight,edgeNum
+    return networkWeight, edgeNum
 
 
-def set_influence(seed, m, networkWeight, number_of_nodes,edgeNum):
+def set_influence(seed, m, networkWeight, number_of_nodes, edgeNum):
     """
     基于IC模型计算一个节点集合在单次模拟下的影响力
     :param seed: 种子节点集合
@@ -191,24 +191,226 @@ def set_influence(seed, m, networkWeight, number_of_nodes,edgeNum):
     start = 0
     end = len(seed)
     while start != end:
-        index=start
-        while index<end:
+        index = start
+        while index < end:
             for i in range(number_of_nodes):
                 if networkWeight[m][active[index]][i] != 0:
                     if i not in active and random.random() < networkWeight[m][active[index]][i]:
                         active.append(i)
-                        active.append(edgeNum[active[index]][i])# 存储边对应的序号
-            index+=2
+                        active.append(edgeNum[active[index]][i])  # 存储边对应的序号
+            index += 2
         start = end
         end = len(active)
-    #print('active_num',active_num)
-    #print(active)
+    # print('active_num',active_num)
+    # print(active)
     return active
+
+
+# 基于IC模型计算一个节点集合在10次模拟下激活的节点
+def set_influence_IC_10(seed, m, networkWeight, edgeNum):
+    """
+    基于IC模型计算一个节点集合在10次模拟下激活的节点
+    :param seed: 种子节点集合
+    :param m: 选择哪种节点影响力进行传播
+    :param networkWeight: 影响力权重矩阵
+    :return active_records: 被激活的节点集合
+    :return: active_num  保存active中的节点在下一次传播中激活节点的个数，用于判断IC模型下active中各个节点之间的激活关系
+    """
+    active = seed
+    start = 0
+    end = len(seed)
+    active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
+
+    for simulation_count in range(0, 10):  # 模拟10次
+        active_records.append([])
+
+        for node in active[start:end]:
+            active_records[simulation_count].append([])
+            active_nodes = set_influence([node], 1, networkWeight, number_of_nodes, edgeNum)  # 把这个节点的模拟结果存起来
+            active_records[simulation_count].append(active_nodes)
+
+    return active_records
+
+
+# 基于LT模型计算一个节点集合在10次模拟下激活的节点
+def set_influence_LT_10(seed, method):  # 胡莎莎
+    '''
+    基于LT模型计算一个节点集合在10次模拟下激活的节点
+    :param seed:
+    :param method:
+    :return:
+    '''
+    active = seed
+    start = 0
+    end = len(seed)
+    # 初始化权重矩阵
+    networkWeight = init_networkWeight(networkTemp, number_of_nodes)
+    networkWeight = []
+    # 设置第一，第二中权值的剩余权值，防止入度的总和超过1
+    node_degree_1 = [1 for i in range(number_of_nodes)]
+    node_degree_2 = [1 for i in range(number_of_nodes)]
+    for i in range(3):
+        networkWeight.append([])
+        for j in range(number_of_nodes):
+            networkWeight[i].append([])
+            for k in range(number_of_nodes):
+                networkWeight[i][j].append(0)
+    # 设置权重
+    # 边的权重有三种设置方式，一种是从[0.1, 0.01, 0.001]中随机选一个，一种是都固定0.1，一种是节点的入度分之一
+    probability_list = [0.1, 0.01, 0.001]
+    degree = [0 for i in range(number_of_nodes)]  # 保存每个节点的度
+
+    for linePiece in networkTemp:
+        degree[linePiece[1] - 1] += 1
+        if node_degree_1[linePiece[1] - 1] >= 0.1:
+            k = random.choice(probability_list)
+            networkWeight[0][linePiece[0] - 1][linePiece[1] - 1] = k
+            node_degree_1[linePiece[1] - 1] -= k
+        elif 0.001 <= node_degree_1[linePiece[1] - 1] < 0.1:  # 去除剩余值过小的情况
+            networkWeight[0][linePiece[0] - 1][linePiece[1] - 1] = node_degree_1[linePiece[1] - 1]
+        if node_degree_2[linePiece[1] - 1] >= 0.1:
+            networkWeight[1][linePiece[0] - 1][linePiece[1] - 1] = 0.1
+            node_degree_2[linePiece[1] - 1] -= 0.1
+    for node in range(number_of_nodes):
+        for iteration in range(number_of_nodes):
+            if iteration != node:
+                if networkWeight[1][iteration][node]:
+                    networkWeight[2][iteration][node] = 1 / degree[node]
+
+    def set_influence_LT(node_set):
+        """
+        基于LT模型计算node_set集合的影响力
+        :param node_set: 节点集合
+        :return: 返回被激活的节点集合
+        """
+        active_nodes = node_set  # 存放被激活的节点，初始为node_set
+        last_influence = 0  # 存放最新的节点影响力，如果值为0就说明影响力传播结束
+        start = last_influence
+        while last_influence != len(active_nodes):
+            last_influence = len(active_nodes)  # 更新影响力
+            for new_active_node in active_nodes[start:last_influence]:
+                for nei_node in range(number_of_nodes):
+                    if networkWeight[method][new_active_node][nei_node] != 0 and nei_node not in active_nodes:
+                        # 将邻居节点的阈值减去边上的权重，如果阈值小于0，那么节点被激活
+                        theta[nei_node] -= networkWeight[method][new_active_node][nei_node]
+                        if theta[nei_node] <= 0:
+                            active_nodes.append(nei_node)
+            start = last_influence
+        return active_nodes
+
+    active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
+    method = 1  # 选择使用哪种权重进行
+    node_count = 0  # 记录当前在计算的节点个数，当列表下标用
+    stimulate_round = 10  # 激活轮数
+    count_influence = 0  # 记录当前节点10次模拟的影响力总和
+    for round in range(stimulate_round):  # 重新设置每个节点的阈值
+        active_records.append([])
+        for node in active[start:end]:  # 遍历输入节点集合中的所有节点，判断影响力
+
+            theta = []  # 保存每个节点的阈值
+            for iteration in range(number_of_nodes):  # 为每个节点随机设置阈值
+                theta.append(random.random())
+            l = set_influence_LT([node])
+            active_records[round].append(l)  # 保存被激活的节点，第一个参数为列表
+            count_influence += len(l)
+        node_count += 1
+
+    # 这里返回一个三维的数组  这是节点集合为1时返回的数据
+    # active_node: [[[1], [1, 3], [1], [1], [1], [1], [1], [1, 3, 11, 12, 22, 27, 17, 23, 24, 41,54], [1], [1]]]
+    return active_records
+
+
+# 基于pageRank算法计算一个节点集合的影响力
+def set_influence_pageRank(seed, m):  # 胡莎莎
+    '''
+    基于pageRank算法计算一个节点集合的影响力
+    :param seed:
+    :param m:
+    :return:
+    '''
+
+    import math
+    import copy
+
+    increment = 1  # 每次迭代后节点影响力的增量,迭代终止条件
+    iteration = 1  # 当前迭代次数
+    inf_old = [1] * number_of_nodes  # 上一次迭代后节点的影响力,初始化为1
+    inf_new = [0] * number_of_nodes  # 这次迭代后影响力的更新，初始化为0
+    c = 0.5
+    outdegree = []  # 每个节点的出度
+    node_neighbors = []  # 指向该节点的邻居节点集合
+    iter_influences = [copy.deepcopy(inf_old)]  # 每次迭代后个节点的影响力
+
+    # 求出度和邻居节点
+    for node in range(number_of_nodes):
+        cur_node_neighbors = []  # 节点node的邻居节点
+        node_outdegree = 0
+        for each_link in networkTemp:
+            if node + 1 == each_link[1]:
+                cur_node_neighbors.append(each_link[0] - 1)
+            if node + 1 == each_link[0]:
+                node_outdegree += 1
+        outdegree.append(node_outdegree)
+        node_neighbors.append(cur_node_neighbors)
+
+    # 开始迭代求节点影响力
+    while increment > 1 / number_of_nodes:
+        increment = 0
+        for node in range(number_of_nodes):
+            # 求节点node的影响力
+            for neighbor in node_neighbors[node]:
+                inf_new[node] += c * (inf_old[neighbor] / outdegree[neighbor])
+            inf_new[node] += (1 - c)
+            node_increment = math.fabs(inf_new[node] - inf_old[node])  # 节点node的影响力改变值
+            increment += node_increment
+        # 更新inf_old
+        for i in range(number_of_nodes):
+            inf_old[i] = inf_new[i]
+            inf_new[i] = 0
+        iter_influences.append(copy.deepcopy(inf_old))
+        iteration += 1
+    active_records = seed  # 用来存放每个节点的模拟结果
+    start = 0
+    end = len(seed)
+    influence = 0
+    for node in seed[start:end]:
+        if node == "":
+            break
+        influence += inf_old[node - 1]
+    return influence
+
+
+# 基于最大度算法计算一个节点集合激活的节点
+def set_influence_degree(seed, m):  # 胡莎莎
+    """
+    基于最大度算法计算一个节点集合激活的节点
+    :param seed:种子节点集合
+    :param m:选择哪种节点影响力进行传播
+    :return active_records:被激活的节点集合
+    """
+    import numpy as np
+
+    # 网络的邻接矩阵
+    adjacencyMatrix = np.zeros([number_of_nodes, number_of_nodes], dtype=int)
+    for i in range(len(networkTemp)):
+        adjacencyMatrix[int(networkTemp[i][0] - 1)][int(networkTemp[i][1] - 1)] = 1
+        # adjacencyMatrix[int(networkTemp[i][1] - 1)][int(networkTemp[i][0] - 1)] = 1
+    active_records = seed  # 用来存放每个节点的模拟结果
+    start = 0
+    end = len(seed)
+    for node in seed[start:end]:
+        if node == "":
+            break
+        for j in range(number_of_nodes):
+            if adjacencyMatrix[node - 1][j] == 1 and j + 1 not in active_records:
+                active_records.append(j + 1)
+    return active_records
 
 
 app = Flask(__name__)
 app.secret_key = 'lisenzzz'
 networkTemp, number_of_nodes, graph_data = init_network('static/data/Wiki.txt')
+
 
 @app.route('/')
 def hello_world():
@@ -219,38 +421,40 @@ def hello_world():
 @app.route('/basicIc1')
 def basic_ic_1():
     # 初始化权重矩阵
-    networkWeight,edgeNum = init_networkWeight(networkTemp, number_of_nodes)
+    networkWeight, edgeNum = init_networkWeight(networkTemp, number_of_nodes)
     # 执行贪心算法找影响力最大的节点
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
     active_nums = []
-    #graph_data1 = json.loads(graph_data)
+    # graph_data1 = json.loads(graph_data)
     for node in range(number_of_nodes):
         active_records.append([])
         active_nums.append([])
-        active_records[node]= set_influence([node,-1], 1, networkWeight, number_of_nodes,edgeNum)  # 把这个节点的模拟结果存起来
-        influence = len(active_records[node])/2
-        #graph_data1['nodes'][node]['value']=influence
+        active_records[node] = set_influence([node, -1], 1, networkWeight, number_of_nodes, edgeNum)  # 把这个节点的模拟结果存起来
+        influence = len(active_records[node]) / 2
+        # graph_data1['nodes'][node]['value']=influence
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
     active_records = json.dumps(active_records)
-    #graph_data1=json.dumps(graph_data1)
+    # graph_data1=json.dumps(graph_data1)
     # 把你需要的数据给对应的页面
 
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records, max_node_influence=
-    max_node_influence, max_influence_node=max_influence_node,method_type=1)
+    return render_template('common_template.html', graph_data=graph_data, active_records=active_records,
+                           max_node_influence=
+                           max_node_influence, max_influence_node=max_influence_node, method_type=1)
+
 
 # 选择单个影响力最大的种子基于ic模型（每个节点模拟十次）
 @app.route('/basicIc10')
 def basic_ic_10():  # 胡莎莎
     # 初始化权重矩阵
-    networkWeight,edgeNum = init_networkWeight(networkTemp, number_of_nodes)
+    networkWeight, edgeNum = init_networkWeight(networkTemp, number_of_nodes)
 
     # 执行贪心算法找影响力最大的节点
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
-    active_nums=[] #每个节点每次模拟激活的节点数
+    active_nums = []  # 每个节点每次模拟激活的节点数
     for node in range(number_of_nodes):
         active_records.append([])
         active_nums.append([])
@@ -258,23 +462,25 @@ def basic_ic_10():  # 胡莎莎
         for simulation_count in range(0, 10):  # 模拟10次
             active_records[node].append([])
             active_nums[node].append([])
-            active_records[node][simulation_count] = set_influence([node,-1], 1, networkWeight,number_of_nodes,edgeNum)  # 把这个节点的模拟结果存起来
+            active_records[node][simulation_count] = set_influence([node, -1], 1, networkWeight, number_of_nodes,
+                                                                   edgeNum)  # 把这个节点的模拟结果存起来
             influence += len(active_records[node][simulation_count])
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
     active_records = json.dumps(active_records)
     # 把你需要的数据给对应的页面
-    max_node_influence/=20#求平均值
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records, max_node_influence=
-    max_node_influence, max_influence_node=max_influence_node,method_type=2)
+    max_node_influence /= 20  # 求平均值
+    return render_template('common_template.html', graph_data=graph_data, active_records=active_records,
+                           max_node_influence=
+                           max_node_influence, max_influence_node=max_influence_node, method_type=2)
 
 
 # 选择单个影响力最大的种子基于lt模型（每个节点模拟十次）
 @app.route('/basicLt10')  # 王钊
 def basic_lt_1():
     # 初始化权重矩阵
-    networkWeight,edgeNum = init_networkWeight(networkTemp, number_of_nodes)
+    networkWeight, edgeNum = init_networkWeight(networkTemp, number_of_nodes)
     networkWeight = []
     # 设置第一，第二中权值的剩余权值，防止入度的总和超过1
     node_degree_1 = [1 for i in range(number_of_nodes)]
@@ -316,7 +522,7 @@ def basic_lt_1():
         active_nodes = node_set  # 存放被激活的节点，初始为node_set
         start = 0
         end = len(active_nodes)
-        while start!=end:
+        while start != end:
             index = start
             while index < end:
                 for nei_node in range(number_of_nodes):
@@ -326,7 +532,7 @@ def basic_lt_1():
                         if theta[nei_node] <= 0:
                             active_nodes.append(nei_node)
                             active_nodes.append(edgeNum[active_nodes[index]][nei_node])
-                index+=2
+                index += 2
             start = end
             end = len(active_nodes)
         return active_nodes
@@ -343,18 +549,19 @@ def basic_lt_1():
             theta = []  # 保存每个节点的阈值
             for iteration in range(number_of_nodes):  # 为每个节点随机设置阈值
                 theta.append(random.random())
-            l = set_influence_LT([node,-1])
+            l = set_influence_LT([node, -1])
             active_records[node].append(l)  # 保存被激活的节点，第一个参数为列表
             count_influence += len(l)
-        influence = count_influence / (stimulate_round*2)
+        influence = count_influence / (stimulate_round * 2)
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
 
     active_records = json.dumps(active_records)
     # 把你需要的数据给对应的页面
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records, max_node_influence=
-    max_node_influence, max_influence_node=max_influence_node,method_type=2)
+    return render_template('common_template.html', graph_data=graph_data, active_records=active_records,
+                           max_node_influence=
+                           max_node_influence, max_influence_node=max_influence_node, method_type=2)
 
 
 # 选择单个影响力最大的种子基于page rank
@@ -422,7 +629,7 @@ def degree():
     active_records = []  # 用来存放每个节点的模拟结果
     for i in range(number_of_nodes):
         active_records.append([])
-        active_records[i].append(i)#将当前节点放入激活列表中
+        active_records[i].append(i)  # 将当前节点放入激活列表中
         active_records[i].append(-1)
         for j in range(number_of_nodes):
             if (adjacencyMatrix[i][j] == 1):
@@ -430,13 +637,13 @@ def degree():
                 active_records[i].append(edgeNum[i][j])
     active_records = json.dumps(active_records)
 
-    graph_data1=json.loads(graph_data)
+    graph_data1 = json.loads(graph_data)
 
     # 存放各个节点的度
     nodeDegree = []
-    influence=0
+    influence = 0
     for i in range(len(adjacencyMatrix)):
-        influence=sum(adjacencyMatrix[i])
+        influence = sum(adjacencyMatrix[i])
         nodeDegree.append(influence)
         graph_data1['nodes'][i]['value'] = str(influence)
 
@@ -444,9 +651,9 @@ def degree():
     max_influence_node = nodeDegree.index(max(nodeDegree)) + 1
     # 最大影响力节点的度
     max_node_influence = max(nodeDegree)
-    graph_data1=json.dumps(graph_data1)
+    graph_data1 = json.dumps(graph_data1)
     return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
-                           max_node_influence=max_node_influence, max_influence_node=max_influence_node,method_type=1)
+                           max_node_influence=max_node_influence, max_influence_node=max_influence_node, method_type=1)
 
 
 @app.route('/input', methods=["GET", "POST"])
@@ -455,7 +662,7 @@ def input():
     global edgeNum
     if request.method == "GET":
         # 初始化权重矩阵
-        networkWeight,edgeNum = init_networkWeight(networkTemp, number_of_nodes)
+        networkWeight, edgeNum = init_networkWeight(networkTemp, number_of_nodes)
 
         err = "true"
         active_records = json.dumps([])
@@ -473,62 +680,6 @@ def input():
             err = "请输入方法"
         if temp == "":
             err = "请输入节点信息"
-        elif err=="false":
-            data = []
-            method = int(method)
-            method-=1
-            s = ""
-            for c in temp:
-                if c == "，":
-                    s += ","
-                else:
-                    s += c
-            s = set(s.split(","))
-            for c in s:
-                if c.isdigit() and c != ',' and c != '，':
-                    c = int(c)
-                    if 0 <= c <= 104 and type(c) == int:
-                        data.append(c)
-                    else:
-                        err = "节点序号应为0-104的整数"
-                        break
-                else:
-                    err="节点序号应为0-104的整数"
-
-        if err != "false":
-            active_records = json.dumps([])
-            return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
-        influence=len(data)
-        data.append(-1)
-        active_node = set_influence(data, 1, networkWeight, number_of_nodes,edgeNum)  # 保存激活的节点
-        influence+=(len(active_node)-influence-1)/2
-        active_records = json.dumps(active_node)
-        return render_template('input.html', graph_data=graph_data, active_records=active_records, influence=influence,err=err)
-
-
-# 集合影响力对比
-@app.route('/collectiveInfluenceComparison', methods=["GET", "POST"])
-def collectiveInfluenceComparison():
-    global networkWeight
-    global edgeNum
-    def calculateSingleSet(method, temp):
-        '''
-        计算单个集合的影响力
-        :param method:使用的概率设置方法
-        :param temp:输入的种子集合
-        :return active_records:激活节点
-        :return err:错误信息
-        '''
-        err = "false"  # 返回错误信息
-        if method != "":
-            if len(method) != 1:
-                err = "请输入一个大小为1-3的整数值"
-            elif method < '0' or method > '9' or int(method) > 3 or int(method) < 1:
-                err = "请输入一个大小为1-3的整数值"
-        else:
-            err = "请输入方法"
-        if temp == "":
-            err = "请输入节点集合"
         elif err == "false":
             data = []
             method = int(method)
@@ -553,43 +704,132 @@ def collectiveInfluenceComparison():
 
         if err != "false":
             active_records = json.dumps([])
-            return active_records, err,1
+            return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
         influence = len(data)
         data.append(-1)
-        active_node = set_influence(data, method, networkWeight, number_of_nodes,edgeNum)  # 保存激活的节点
-        active_records = json.dumps(active_node)
+        active_node = set_influence(data, 1, networkWeight, number_of_nodes, edgeNum)  # 保存激活的节点
         influence += (len(active_node) - influence - 1) / 2
-        return active_records, err,influence
+        active_records = json.dumps(active_node)
+        return render_template('input.html', graph_data=graph_data, active_records=active_records, influence=influence,
+                               err=err)
+
+
+# 计算在选定算法下单个集合的影响力
+def calculateSingleSet(method, temp):
+    """
+    计算在选定算法下单个集合的影响力
+    :param method:选择的算法
+    :param temp:输入的种子集合
+    :return active_records:激活节点
+    :return err:错误信息
+    """
+    err = "false"  # 返回错误信息
+
+    if temp == "":
+        err = "请输入节点集合"
+    elif err == "false":
+        data = []
+        method = int(method)
+        # method -= 1
+        s = ""
+        for c in temp:
+            if c == "，":
+                s += ","
+            else:
+                s += c
+        s = set(s.split(","))
+        for c in s:
+            if c.isdigit() and c != ',' and c != '，':
+                c = int(c)
+                if 0 <= c <= 104 and type(c) == int:
+                    data.append(c)
+                else:
+                    err = "节点序号应为0-104的整数"
+                    break
+            else:
+                err = "节点序号应为0-104的整数"
+    if err != "false":
+        active_records = json.dumps([])
+        return active_records, err
+    if method == 1:  # IC模型模拟一次
+        active_node = set_influence(data, 1, networkWeight, number_of_nodes, edgeNum)  # 保存激活的节点
+    elif method == 2:  # IC模型模拟十次
+        active_node = set_influence_IC_10(data, 1, networkWeight, edgeNum)  # 保存激活的节点
+    elif method == 3:  # LT模型模拟十次
+        active_node = set_influence_LT_10(data, 1)  # 保存激活的节点
+        active_num = 0
+    elif method == 4:  # pageRank算法
+        active_node = set_influence_pageRank(data, 1)  # 保存激活的节点
+        active_num = 0
+    elif method == 5:  # 最大度算法
+        active_node = set_influence_degree(data, 1)  # 保存激活的节点
+        active_num = 0
+    active_records = json.dumps(active_node)
+    return active_records, err
+
+
+# 集合影响力对比
+@app.route('/collectiveInfluenceComparison', methods=["GET", "POST"])  # 胡莎莎
+def collectiveInfluenceComparison():
+    global networkWeight
+    global edgeNum
 
     if request.method == "GET":
         # 初始化边的权重
-        networkWeight,edgeNum = init_networkWeight(networkTemp, number_of_nodes)
+        networkWeight, edgeNum = init_networkWeight(networkTemp, number_of_nodes)
         err1 = "true"
         err2 = "true"
         active_records1 = json.dumps([])
         active_records2 = json.dumps([])
-        temp1 = ""
-        temp2 = ""
-        influence1=0
-        influence2=0
+        seed1 = ""
+        seed2 = ""
+        method1 = ""
+        method2 = ""
         return render_template('collectiveInfluenceComparison.html', graph_data=graph_data,
                                active_records1=active_records1, active_records2=active_records2, err1=err1, err2=err2,
-                               temp1=temp1, temp2=temp2,influence1=influence1,influence2=influence2)
+                               seed1=seed1, seed2=seed2, method1=method1, method2=method2)
     else:
         temp1 = request.form.get('value1')
         method1 = request.form.get('method1')
-        active_records1, err1,influence1 = calculateSingleSet(method1, temp1)
+        active_records1, err1 = calculateSingleSet(method1, temp1)
+        seed1 = []
+        s = ""
+        for c in temp1:
+            if c == "，":
+                s += ","
+            else:
+                s += c
+        s = set(s.split(","))
+        for c in s:
+            if c.isdigit() and c != ',' and c != '，':
+                c = int(c)
+                if 0 <= c <= 104 and type(c) == int:
+                    seed1.append(c)
+
         temp2 = request.form.get('value2')
         method2 = request.form.get('method2')
-        active_records2, err2,influence2 = calculateSingleSet(method2, temp2)
-        print(active_records1)
-        print(active_records2)
-        if err2!="false":
-            err1=err2
+        active_records2, err2 = calculateSingleSet(method2, temp2)
+
+        seed2 = []
+        s = ""
+        for c in temp2:
+            if c == "，":
+                s += ","
+            else:
+                s += c
+        s = set(s.split(","))
+        for c in s:
+            if c.isdigit() and c != ',' and c != '，':
+                c = int(c)
+                if 0 <= c <= 104 and type(c) == int:
+                    seed2.append(c)
+
+        if err2 != "false":
+            err1 = err2
         return render_template('collectiveInfluenceComparison.html', graph_data=graph_data,
                                active_records1=active_records1, active_records2=active_records2, err1=err1, err2=err2,
-                               temp1=temp1, temp2=temp2,influence1=influence1,influence2=influence2)
+                               seed1=seed1, seed2=seed2, method1=method1, method2=method2)
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
