@@ -190,6 +190,7 @@ def set_influence(seed, m, networkWeight, number_of_nodes, edgeNum):
     active = seed
     start = 0
     end = len(seed)
+
     while start != end:
         index = start
         while index < end:
@@ -426,21 +427,20 @@ def basic_ic_1():
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
     active_nums = []
-    # graph_data1 = json.loads(graph_data)
+    graph_data1 = json.loads(graph_data)#将json数据转化为字典的形式
     for node in range(number_of_nodes):
         active_records.append([])
         active_nums.append([])
         active_records[node] = set_influence([node, -1], 1, networkWeight, number_of_nodes, edgeNum)  # 把这个节点的模拟结果存起来
         influence = len(active_records[node]) / 2
-        # graph_data1['nodes'][node]['value']=influence
+        graph_data1['nodes'][node]['value']=influence#使图中各个节点右下角显示节点的影响力大小
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
     active_records = json.dumps(active_records)
-    # graph_data1=json.dumps(graph_data1)
-    # 把你需要的数据给对应的页面
-
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records,
+    graph_data1=json.dumps(graph_data1)#将数据转化为json格式
+    #把需要的数据给对应的页面
+    return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
                            max_node_influence=
                            max_node_influence, max_influence_node=max_influence_node, method_type=1)
 
@@ -455,6 +455,7 @@ def basic_ic_10():  # 胡莎莎
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
     active_nums = []  # 每个节点每次模拟激活的节点数
+    graph_data1 = json.loads(graph_data)
     for node in range(number_of_nodes):
         active_records.append([])
         active_nums.append([])
@@ -465,13 +466,15 @@ def basic_ic_10():  # 胡莎莎
             active_records[node][simulation_count] = set_influence([node, -1], 1, networkWeight, number_of_nodes,
                                                                    edgeNum)  # 把这个节点的模拟结果存起来
             influence += len(active_records[node][simulation_count])
+        graph_data1['nodes'][node]['value'] = influence / 10  # 模拟十次的平均影响力
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
     active_records = json.dumps(active_records)
     # 把你需要的数据给对应的页面
     max_node_influence /= 20  # 求平均值
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records,
+    graph_data1 = json.dumps(graph_data1)
+    return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
                            max_node_influence=
                            max_node_influence, max_influence_node=max_influence_node, method_type=2)
 
@@ -541,6 +544,7 @@ def basic_lt_1():
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
     method = 1  # 选择使用哪种权重进行
+    graph_data1 = json.loads(graph_data)
     for node in range(number_of_nodes):  # 遍历所有的节点，判断影响力
         active_records.append([])
         stimulate_round = 10  # 激活轮数
@@ -553,13 +557,15 @@ def basic_lt_1():
             active_records[node].append(l)  # 保存被激活的节点，第一个参数为列表
             count_influence += len(l)
         influence = count_influence / (stimulate_round * 2)
+        graph_data1['nodes'][node]['value'] = influence
         if influence > max_node_influence:
             max_node_influence = influence
             max_influence_node = node
 
     active_records = json.dumps(active_records)
+    graph_data1 = json.dumps(graph_data1)
     # 把你需要的数据给对应的页面
-    return render_template('common_template.html', graph_data=graph_data, active_records=active_records,
+    return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
                            max_node_influence=
                            max_node_influence, max_influence_node=max_influence_node, method_type=2)
 
