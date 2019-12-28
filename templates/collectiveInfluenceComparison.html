@@ -96,7 +96,8 @@
         var active_records1 = {{ active_records1 | tojson }};
         var temp1 = {{ seed1 | tojson }}; //输入的节点集合1
         var method1 = {{ method1 | tojson }};
-        drawGragh(dom1,graph1,err1,active_records1,temp1,1,method1);
+        var edge_records1={{edge_records1|tojson}};
+        drawGragh(dom1,graph1,err1,active_records1,temp1,1,method1,edge_records1);
 
         var dom2 = document.getElementById("container2");
         var graph2 = {{ graph_data | tojson }}
@@ -104,11 +105,11 @@
         var active_records2 = {{ active_records2 | tojson }};
         var temp2 = {{ seed2 | tojson }}; //输入的节点集合2
         var method2 = {{ method2 | tojson }};
-        drawGragh(dom2,graph2,err2,active_records2,temp2,2,method2);
+        var edge_records2={{edge_records2|tojson}};
+        drawGragh(dom2,graph2,err2,active_records2,temp2,2,method2,edge_records2);
 
-        function drawGragh(dom,graph,err,active_records,seed,no,method){
+        function drawGragh(dom,graph,err,active_records,seed,no,method,edge_records){
             var myChart = echarts.init(dom);
-
             var option;
             graph = init_graph(graph);  //初始化图数据
             option = init_option(graph);//初始化属性
@@ -141,7 +142,6 @@
             if(err=="false"){
                 var active_records = JSON.parse(active_records);
                 if(method == 1){ //IC模型模拟一次
-                    var step=1
                     var record_node_no = 0;//用来记录当前显示节点的记录的编号
                     myChart.setOption({
                         title: {
@@ -153,38 +153,37 @@
                     });
                     var interval_no = setInterval(function () {
                         graph.nodes[active_records[record_node_no]].category = 1;
-                        graph.nodes[active_records[record_node_no]].symbolSize = 25;
+                        graph.nodes[active_records[record_node_no]].symbolSize = 30;
                         myChart.setOption({
-                            series: [{
-                                data: graph.nodes,
+                            series: [
+                            {
+                            data: graph.nodes,
                                 links: graph.links
-                            }]
+                            }
+                        ]
                         })
-                        record_node_no+=1
-                         if(record_node_no==active_records.length)//当全部节点显示完毕后跳出循环
+                        record_node_no+=1;
+                        if(record_node_no>=active_records.length)//当全部节点显示完毕后跳出循环
                             clearInterval(interval_no);
+                        else{
+                            if(edge_records[record_node_no]!=-1){
+                                graph.links[edge_records[record_node_no]].lineStyle.width=6;
+                                graph.links[edge_records[record_node_no]].lineStyle.color='blue';
+                            }
+                        }
                     }, 1500);
                 }else if(method == 3 || method == 2){//LT或IC模型模拟10次
-                    var influence_LT = 0;
-                    for(var i=0;i<active_records.length;i++){ //计算平均影响力
-                        for(var j=0;j<active_records[i].length;j++){
-                            var active_records_i = new Array();
-                            for(var k=0;k < active_records[i][j].length;k++){
-                                if(active_records_i.indexOf(active_records[i][j][k]) < 0){
-                                    active_records_i.push(active_records[i][j][k]);
-                                }
-                            }
-                            influence_LT += active_records_i.length;
-                        }
-                    }
-                    influence_LT = influence_LT/active_records.length;
+                    var sum=0;
+                    active_records.forEach(function(records){
+                        sum+=records.length;
+                    })
                     var stimulate_round=0;	//记录模拟的次数
                     var record_node_no = 0;//用来记录当前显示节点的记录的编号
                     var title = '';
                     if(method == 2){
-                        title = '输入集合'+no+':'+seed+' IC模型模拟十次的平均影响力是' + influence_LT;
+                        title = '输入集合'+no+':'+seed+' IC模型模拟十次的平均影响力是' + sum/10;
                     }else if(method == 3){
-                        title = '输入集合'+no+':'+seed+' LT模型模拟十次的平均影响力是' + influence_LT;
+                        title = '输入集合'+no+':'+seed+' LT模型模拟十次的平均影响力是' + sum/10;
                     }
                     myChart.setOption({
                             title: {
@@ -197,18 +196,10 @@
                                 links: graph.links
                             }]
                         })
-                    var active_records_i = new Array();
+                    var edge=[];
                     var interval_no = setInterval(function () {
-                        if(record_node_no == 0){
-                            for(var i=0;i<active_records[stimulate_round].length;i++){
-                                for(var j=0;j<active_records.length;j++){
-                                    if(typeof(active_records[stimulate_round][i][j]) != 'undefined')
-                                        active_records_i.push(active_records[stimulate_round][i][j])
-                                }
-                            }
-                        }
-                        graph.nodes[active_records_i[record_node_no]].category = 1;
-                        graph.nodes[active_records_i[record_node_no]].symbolSize = 25;
+                        graph.nodes[active_records[stimulate_round][record_node_no]].category = 1;
+                        graph.nodes[active_records[stimulate_round][record_node_no]].symbolSize = 30;
                         myChart.setOption({
                             title: {
                                 text: title,
@@ -221,17 +212,35 @@
                                 links: graph.links
                             }]
                         })
-                        record_node_no+=1;
-                        if(record_node_no==active_records_i.length){
-                            stimulate_round++;
-                            record_node_no = 0;
-                            active_records_i.forEach(function(node){
+                        record_node_no+=1
+                        if(record_node_no>=active_records[stimulate_round].length){
+                            edge.forEach(function(ed){
+                                graph.links[ed].lineStyle.width=1;
+                                graph.links[ed].lineStyle.color='rgba(0, 0, 0, 0.7)';
+                            })
+                            active_records[stimulate_round].forEach(function(node){
                                 graph.nodes[node].category=0;
                                 graph.nodes[node].symbolSize=15;
                             });
-                            active_records_i=[];
+                            stimulate_round++;
+                            record_node_no = 0;
+                            step=1;
+                            edge=[];
                             if(stimulate_round==10){
-                                 clearInterval(interval_no);
+                                clearInterval(interval_no);
+                            }
+                        }
+                        else{
+                            if(edge_records[stimulate_round][record_node_no]!=-1){
+                                try{
+                                    edge.push(edge_records[stimulate_round][record_node_no]);
+                                    graph.links[edge_records[stimulate_round][record_node_no]].lineStyle.width=6;
+                                    graph.links[edge_records[stimulate_round][record_node_no]].lineStyle.color='blue';
+                                }
+                                catch(aaa)
+                                {
+                                    var i=1
+                                    }
                             }
                         }
                     }, 1500);
@@ -280,8 +289,14 @@
                         ]
                         })
                         record_node_no+=1
-                         if(record_node_no==active_records.length)//当全部节点显示完毕后跳出循环
+                        if(record_node_no>=active_records.length)//当全部节点显示完毕后跳出循环
                             clearInterval(interval_no);
+                        else{
+                            if(edge_records[record_node_no]!=-1){
+                                graph.links[edge_records[record_node_no]].lineStyle.width=6;
+                                graph.links[edge_records[record_node_no]].lineStyle.color='blue';
+                            }
+                        }
                     }, 1500);
                 }
             }else{

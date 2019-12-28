@@ -20,7 +20,7 @@
     var active_records = {{ active_records | tojson }};
     active_records = JSON.parse(active_records);
     var method={{ method_type }};//获取使用的哪种方法，方便后面的节点激活过程的显示
-
+    var edge_records={{edge_records}}
     var max_influence_node={{max_influence_node}};
     var max_node_influence={{max_node_influence}};
     var node_no = 0;		//用来记录当前显示的节点
@@ -41,9 +41,9 @@
 
     node_no_acv = record_node_num(node_no,stimulate_round,active_records);
     if(method == 1) 	//记录副标题
-        subtext="当前节点的影响力为:"+active_records[0].length/2+"\n";
+        subtext="当前节点的影响力为:"+active_records[0].length+"\n";
     else
-        subtext="当前节点第1次模拟的影响力为:"+active_records[0][0].length/2+"\n";
+        subtext="当前节点第1次模拟的影响力为:"+active_records[0][0].length+"\n";
 
     update_show(text,subtext,myChart);
     interval_no = setInterval(function () {
@@ -51,12 +51,12 @@
         {
             if(method == 1)//1次模拟：显示影响力最大的节点影响的节点数
             {
-                for(var i=0;i<active_records[max_influence_node].length;i+=2){
+                for(var i=0;i<active_records[max_influence_node].length;i+=1){
                 graph.nodes[active_records[max_influence_node][i]].category=1;
                 graph.nodes[active_records[max_influence_node][i]].symbolSize=25;
                 if(i!=0){//设置被影响的节点的边的样式
-                    graph.links[active_records[max_influence_node][i+1]].lineStyle.width = 6;
-                    graph.links[active_records[max_influence_node][i+1]].lineStyle.color='blue';
+                    graph.links[edge_records[max_influence_node][i]].lineStyle.width = 6;
+                    graph.links[edge_records[max_influence_node][i]].lineStyle.color='blue';
                     }
                 }
                 subtext="影响力为"+max_node_influence;
@@ -70,11 +70,11 @@
             clearInterval(interval_no);// 跳出setInterval，结束循环
         }
         else{
-            if (Object.keys(record_node_num(node_no,stimulate_round,active_records)).length != 1 && record_node_no != 0) {
-
-                links_arr.push(record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]);
-                graph.links[record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]].lineStyle.width = 6;//设置当前激活路径的宽度
-                graph.links[record_node_num(node_no,stimulate_round,active_records)[record_node_no+1]].lineStyle.color = 'blue';//设置当前激活路径的颜色
+            if (record_edge_num(node_no,stimulate_round,edge_records)[record_node_no]!=-1 && record_node_no != 0) {
+//Object.keys(record_node_num(node_no,stimulate_round,active_records)).length != 1
+                links_arr.push(record_edge_num(node_no,stimulate_round,edge_records)[record_node_no]);
+                graph.links[record_edge_num(node_no,stimulate_round,edge_records)[record_node_no]].lineStyle.width = 6;//设置当前激活路径的宽度
+                graph.links[record_edge_num(node_no,stimulate_round,edge_records)[record_node_no]].lineStyle.color = 'blue';//设置当前激活路径的颜色
 
                 //current_link=getLinkIdBySourceAndTarget(graph, active_source_node, activated_node)
 
@@ -83,11 +83,11 @@
             graph.nodes[node_no_acv[record_node_no]].category=1;
             text = '节点'+node_no+'的激活过程';
             update_show(text,subtext,myChart);
-            record_node_no+=2;
+            record_node_no+=1;
             if(record_node_no==node_no_acv.length)
             //10次模拟：当前模拟结束，进行下一次模拟，1次模拟：当前节点的影响力显示完毕，显示下一个节点	清除上个节点的记录
             {
-                for(var i=0;i<node_no_acv.length;i+=2){
+                for(var i=0;i<node_no_acv.length;i+=1){
                     graph.nodes[node_no_acv[i]].category=0;
                     graph.nodes[node_no_acv[i]].symbolSize=15;
                 }
@@ -103,11 +103,9 @@
                 {
                     node_no++;	//节点自加
                 }
-                else 			//10次模拟
-                {
+                else{ 			//10次模拟
                     stimulate_round++;
-                    if(stimulate_round==10)	//
-                    {
+                    if(stimulate_round==10){
                         stimulate_round=0;
                         node_no++;
                         subtext="";
@@ -121,12 +119,19 @@
                     num=0;
                     if(method != 1) s="第"+(stimulate_round+1)+"次模拟";
                     else subtext="";
-                    subtext+="当前节点"+s+"的影响力为:"+node_no_acv.length/2+"\n";
+                    subtext+="当前节点"+s+"的影响力为:"+node_no_acv.length+"\n";
                 }
             }
         }
     },10)
+    function record_edge_num(num,round,edge)//边edge的激活记录
+    {
+        if(typeof(edge[0][0])=="number")
+            return edge[num];
+        else
+            return edge[num][round];
 
+    }
     function record_node_num(num,round,active_records)//节点num的激活记录
     {
         if(typeof(active_records[0][0])=="number")
