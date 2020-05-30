@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+  <meta charset="utf-8">
+</head>
+<body style="height: 100%; margin: 0">
+  <div id="container" style="height: 100%"></div>
+  <script type="text/javascript" src="/static/js/echarts.js"></script>
+  <script type="text/javascript" src="/static/js/function.js"></script>
+  <script type="text/javascript">
+    var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var option;
+    var graph = {{ graph_data | tojson }} 
+    graph = init_graph(graph); 
+    option = initOption(graph);
+    myChart.setOption(option);
+    var community = {{community}}
+    //corenode = JSON.parse(corenode);
+    var communityEdge = {{communityEdge}}
+    var edgeNum = {{edgeNum}};
+    //LocalClosedNeighbors = JSON.parse(LocalClosedNeighbors)
+    var text = "第1个社区的发现过程"; 
+    var lineStyle = [{width: 6, color: '#009688'}, {width: 6, color: '#aa4554'}]
+    update_show(text,subtext,myChart);
+    var nodeIndex = 0; //记录当前访问的节点的下标
+    var communityNum = 0;
+    //var postNode = communityEdge[0][0][0];
+    var currentNode = communityEdge[0][0][0]; //进行扩张的核心节点
+    var subtext = "";
+    intervalNo = setInterval(() => {
+        update_show(text,subtext,myChart);
+        c = communityEdge[communityNum]; //获得当前要显示的社区
+        subtext = "核心节点" + currentNode + "的扩张过程\n";
+        if(nodeIndex < community[communityNum].length){ //社区节点未全部显示完毕
+            if(nodeIndex != 0) {
+                graph.links[edgeNum[c[nodeIndex][0]][c[nodeIndex][1]]].lineStyle.width = lineStyle[communityNum].width;
+                graph.links[edgeNum[c[nodeIndex][0]][c[nodeIndex][1]]].lineStyle.color = lineStyle[communityNum].color;
+            }
+            else {
+                currentNode = communityEdge[communityNum][0][0];
+                subtext = "核心节点" + currentNode + "的扩张过程\n";
+            }
+            if(c[nodeIndex][0] != currentNode) {
+                currentNode = c[nodeIndex][0];
+                subtext = "核心节点" + currentNode + "的扩张过程\n";
+            }
+            var node = community[communityNum][nodeIndex];
+            if(node <= 0) { // 如果node小于等于0，说明node是核心节点
+                node *= -1;
+                subtext += "核心节点" + node + "发现";
+                graph.nodes[node].symbolSize=25;
+            }
+            graph.nodes[node].category = communityNum + 1;
+        }
+        else { // 社区节点展示完毕
+            ++communityNum;
+            if(communityNum >= community.length) { //全部社区展示完毕
+                clearInterval(intervalNo);
+                subtext = ""
+                text = "社区发现完毕";
+                for(var i = 0; i < communityEdge.length; ++i) { // 回复所有的边 
+                    for(var j = 0; j < communityEdge[i].length; ++j) {
+                        graph.links[edgeNum[communityEdge[i][j][0]][communityEdge[i][j][1]]].lineStyle.width = 1;
+                        graph.links[edgeNum[communityEdge[i][j][0]][communityEdge[i][j][1]]].lineStyle.color = '#2f4554';
+                    }
+                }
+                update_show(text,subtext,myChart);  
+            }
+            text = "第" + (communityNum + 1) + "个社区的发现过程";
+            nodeIndex = -1;
+        }
+        ++nodeIndex
+    }, 1000);
+   
+    function update_show(text,subtext,myChart) {
+      myChart.setOption({
+        title:{
+          text:text,
+          subtext: subtext
+        },
+        series:[{
+          data:graph.nodes,
+          links:graph.links
+        }]
+      })
+    }
+
+    function initOption(graph){
+    var option;
+    var categories = [];
+    categories[0] = {
+        name: '噪声节点',
+        itemStyle: {
+            color: '#2f4554',
+            opacity: 0.9, //不透明度
+        }
+    }
+    categories[1] = {
+        name: '社区1',
+        itemStyle: {
+            color: '#009688',
+            opacity: 1, //不透明度
+        },
+        label: {
+            fontSize: 20,
+        },
+    };
+    categories[2] = {
+        name: '社区2',
+        itemStyle: {
+            color: '#aa4554',
+            opacity: 0.9, //不透明度
+        },
+        label: {
+            fontSize: 20,
+        }
+    }
+    //设置要生成的图的相关属性
+    option = {
+        title: {
+            text: '',
+            subtext: '',
+            top: 'top',
+            left: 'left'
+        },
+        tooltip: {},
+        legend: [{
+            // selectedMode: 'single',
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }],
+        animationDuration: 1500,
+        animationEasingUpdate: 'quinticInOut',
+        series: [
+            {
+                name: 'Les Miserables',
+                type: 'graph',
+                layout: 'none',
+                //下面三项分别设置节点数据，边数据，种类数据
+                data: graph.nodes,
+                links: graph.links,
+                categories: categories,
+                roam: true,
+                animation: false,
+                focusNodeAdjacency: true,
+                itemStyle: {
+                    normal: {
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    }
+                },
+                label: {
+                    position: 'right',
+                    formatter: '{b}'
+                },
+                lineStyle: {
+                    color: 'rgba(0, 0, 0, 0.7)',
+                    curveness: 0.3
+                },
+                emphasis: {
+                    lineStyle: {
+                        width: 10
+                    }
+                },
+                force: {
+                    repulsion: 270
+                }
+            }
+        ]
+    };
+    return option;
+}
+</script>
+</body>
+</html>

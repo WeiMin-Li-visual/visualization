@@ -853,5 +853,206 @@ def collectiveInfluenceComparison():
                                method1=method1, method2=method2)
 
 
+@app.route('/CommunityECDR')
+def ECDR():
+    from scipy.linalg import qr, svd, pinv
+    import pandas as pd
+    import numpy as np
+
+    def network():
+        path = r"C:/Users/Administrator/OneDrive/visualization/static/data/Wiki.txt"
+        data = pd.read_table(path, header=None)
+        return data
+
+    # 计算网络中包含的节点数
+    data = network()
+    nodes = []  # 所有节点集合
+    for i in range(0, 2):
+        for j in range(len(data)):
+            if data[i][j] not in nodes:
+                nodes.append(data[i][j])
+    node_num = len(nodes)  # 网络中节点的数量
+
+    # 返回所有的边，以列表的形式[[],[]...]
+    def edge():
+        data = network()
+        edgeNum = []
+        for i in range(node_num):
+            edgeNum.append([0 for j in range(node_num)])
+        edges = []  # 所有连接路径集合
+        count = 0
+        for i in range(len(data)):
+            edgeNum[data[0][i] - 1][data[1][i] - 1] = count
+            edgeNum[data[1][i] - 1][data[0][i] - 1] = count
+            count += 1
+            t = [data[0][i], data[1][i]]
+            edges.append(t)
+        edges_num = len(edges)  # 连接路径的数量
+        return edges, edgeNum
+
+    # 网络G的邻接矩阵表示为A=（aij）n×n，若节点vi与节点vj之间存在直接相连的路径，则aij=1，否则为0
+    def AdjacencyMatrix():
+        edges = edge()
+        A = np.zeros([node_num, node_num], dtype=int)  # 网络G的邻接矩阵A
+        for i in range(len(edges)):
+            A[int(edges[i][0]) - 1][int(edges[i][1]) - 1] = 1  # 数据中的节点是从1开始的，而矩阵是从0开始的
+            A[int(edges[i][1]) - 1][int(edges[i][0] - 1)] = 1
+        return A
+
+    edges, edgeNum = edge()
+    A = np.zeros([node_num, node_num], dtype=int)  # 网络G的邻接矩阵A
+    for i in range(len(edges)):
+        A[int(edges[i][0]) - 1][int(edges[i][1]) - 1] = 1  # 数据中的节点是从1开始的，而矩阵是从0开始的
+        A[int(edges[i][1]) - 1][int(edges[i][0] - 1)] = 1
+
+    # 度的节点矩阵,返回各个节点的度
+    D1 = []  # 存放各个节点的度D1
+    D = np.zeros([node_num, node_num], dtype=int)  # 度的节点矩阵D
+    for i in range(len(A)):
+        D1.append(sum(A[i]))
+    for i in range(len(D1)):
+        D[i][i] = D1[i]
+
+    # 电阻矩阵
+    def ResistorMatrix():
+        L = D - A  # 图状网络G的拉普拉斯矩阵L
+        L1 = pinv(L)  # L的摩尔-彭若斯逆
+        Q = np.zeros([node_num, node_num])  # 电阻矩阵Q
+        for i in range(len(Q)):
+            for j in range(len(Q[0])):
+                Q[i][j] = L1[i][i] + L1[j][j] - 2 * L1[i][j]
+        return Q
+
+    # 两个节点有共同连接节点的矩阵
+    def CommonNode():
+        CommonNode = np.zeros([node_num, node_num], dtype=int)
+        for i in range(len(CommonNode) - 1):
+            for j in range(i + 1, len(CommonNode[0])):
+                count = 0
+                for t in range(i + 1, len(CommonNode[0])):
+                    if A[i][t] == A[j][t] == 1:
+                        count = count + 1
+                CommonNode[i][j] = count
+                CommonNode[j][i] = count
+        return CommonNode
+
+    # 邻居节点间的距离
+    def NodeDistance():
+        ComNode = CommonNode()  # 公共节点矩阵
+        Q = ResistorMatrix()  # 电阻矩阵
+        Dis = np.zeros([node_num, node_num])  # 邻居节点的距离
+        for i in range(len(Dis)):
+            for j in range(len(Dis[0])):
+                dd = min((1 - ComNode[i][j] / D[i][i]), (1 - ComNode[i][j] / D[j][j]))
+                Dis[i][j] = Q[i][j] * dd
+        return Dis
+
+    # 计算局部亲密邻居阈值矩阵
+    def Threshold():
+        Dis = NodeDistance()  # 邻居节点间的距离
+        thres = np.zeros([node_num, node_num])  # 各个节点的阈值
+        for i in range(len(thres)):
+            s = 1
+            for j in range(len(thres[0])):
+                if A[i][j] == 1:
+                    s = s * Dis[i][j]
+            thres[i][i] = s ** (1 / D[i][i])
+        return thres
+
+    # 节点在t时刻的局部紧密邻居
+    thres = Threshold()  # 局部亲密邻居阈值
+    LCN_Matrix = copy.deepcopy(A)  # 邻接矩阵
+    Dis = NodeDistance()  # 邻居节点间的距离
+    for i in range(len(LCN_Matrix)):
+        for j in range(len(LCN_Matrix[0])):
+            if LCN_Matrix[i][j] == 1 and (Dis[i][j] <= thres[i][i] or Dis[i][j] <= thres[j][j]):
+                LCN_Matrix[i][j] = LCN_Matrix[j][i] = 2  # 亲密邻居？
+
+    # 每个节点局部最小聚类阈值
+    def LocalMinimumClusteringThreshold(a):
+        LMCT = []
+        for i in range(len(D1)):
+            LMCT.append(D1[i] * a)
+        return LMCT
+
+    def CoreNode():
+        LMCT = LocalMinimumClusteringThreshold(0.7)  # 每个节点局部最小聚类阈值
+        LCN = []  # 存放每个节点的局部邻居数量
+        # LCN_Matrix=LocalCloseNeighbors()#节点在t时刻的局部紧密邻居矩阵
+        for i in range(len(LCN_Matrix)):
+            count = 0
+            for j in range(len(LCN_Matrix[0])):
+                if LCN_Matrix[i][j] == 2:
+                    count = count + 1
+            LCN.append(count)
+        core_node = []
+        for i in range(len(LCN)):
+            if LCN[i] >= LMCT[i]:
+                core_node.append(i)
+        return core_node
+
+    # 判断是否为核心节点方法一
+    # （将所有的核心节点都算出来得到核心节点列表，然后判断给定的节点是否在核心节点列表中）
+    def Judge_CoreNode(Node):
+        CoreNode_arr = CoreNode()
+        if Node in CoreNode_arr:
+            return True
+        else:
+            return False
+
+    def unVisited(TagNode):
+        unVisitedNode = []  # 存放所有未访问的节点
+        for j in range(len(TagNode)):
+            if TagNode[j] == 0:
+                unVisitedNode.append(j)
+        return unVisitedNode
+
+    def CommunityDivision():
+        communityEdge = [] # 保存核心节点与局部亲密邻居的边
+        codenode = CoreNode() # 获得所有的核心节点
+        # 计算所有核心节点的局部亲密邻居
+        LocalClosedNeighbors = {}
+        for node in codenode:
+            LocalClosedNeighbors[node] = []
+            for i in range(len(LCN_Matrix)):
+                if LCN_Matrix[node][i] == 2:
+                    LocalClosedNeighbors[node].append(i)
+        community = []
+        cNum = -1
+        unvisited = [0 for i in range(node_num)]
+        for node in codenode:
+            if unvisited[node] == 0: # 核心节点未被访问，说明存在新社区
+                community.append([])
+                communityEdge.append([])
+                cNum += 1
+            else:
+                continue
+            coreList = [node]
+            community[cNum].append(-1 * node)
+            communityEdge[cNum].append([node, node])
+            unvisited[node] = 1
+            index = 0
+            while index < len(coreList):
+                corenode = coreList[index]
+                closedNei = LocalClosedNeighbors[corenode]
+                for n in closedNei: # 遍历所有的局部亲密邻居，将核心节点放入coreList中，将不在社区中的节点加入相应社区
+                    if n in codenode:
+                        if n not in coreList:
+                            coreList.append(n)
+                        n *= -1
+                    if unvisited[abs(n)] == 0:
+                        community[cNum].append(n)
+                        communityEdge[cNum].append([corenode, abs(n)])
+                        unvisited[abs(n)] = 1
+                index += 1
+        return community, communityEdge
+
+    C, communityEdge = CommunityDivision()
+    graph_data1 = json.loads(graph_data)
+    graph_data1 = json.dumps(graph_data1)
+    return render_template('EDCR.html', graph_data=graph_data1, community=C,
+                           communityEdge=communityEdge, edgeNum=edgeNum)
+
+
 if __name__ == '__main__':
     app.run(debug=True)
