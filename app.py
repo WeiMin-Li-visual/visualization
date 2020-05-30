@@ -860,7 +860,7 @@ def ECDR():
     import numpy as np
 
     def network():
-        path = r"C:/Users/Administrator/OneDrive/visualization/static/data/Wiki.txt"
+        path = r"./static/data/Wiki.txt"
         data = pd.read_table(path, header=None)
         return data
 
@@ -889,15 +889,6 @@ def ECDR():
             edges.append(t)
         edges_num = len(edges)  # 连接路径的数量
         return edges, edgeNum
-
-    # 网络G的邻接矩阵表示为A=（aij）n×n，若节点vi与节点vj之间存在直接相连的路径，则aij=1，否则为0
-    def AdjacencyMatrix():
-        edges = edge()
-        A = np.zeros([node_num, node_num], dtype=int)  # 网络G的邻接矩阵A
-        for i in range(len(edges)):
-            A[int(edges[i][0]) - 1][int(edges[i][1]) - 1] = 1  # 数据中的节点是从1开始的，而矩阵是从0开始的
-            A[int(edges[i][1]) - 1][int(edges[i][0] - 1)] = 1
-        return A
 
     edges, edgeNum = edge()
     A = np.zeros([node_num, node_num], dtype=int)  # 网络G的邻接矩阵A
@@ -990,22 +981,6 @@ def ECDR():
             if LCN[i] >= LMCT[i]:
                 core_node.append(i)
         return core_node
-
-    # 判断是否为核心节点方法一
-    # （将所有的核心节点都算出来得到核心节点列表，然后判断给定的节点是否在核心节点列表中）
-    def Judge_CoreNode(Node):
-        CoreNode_arr = CoreNode()
-        if Node in CoreNode_arr:
-            return True
-        else:
-            return False
-
-    def unVisited(TagNode):
-        unVisitedNode = []  # 存放所有未访问的节点
-        for j in range(len(TagNode)):
-            if TagNode[j] == 0:
-                unVisitedNode.append(j)
-        return unVisitedNode
 
     def CommunityDivision():
         communityEdge = [] # 保存核心节点与局部亲密邻居的边

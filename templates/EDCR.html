@@ -13,9 +13,9 @@
     var option;
     var graph = {{ graph_data | tojson }} 
     graph = init_graph(graph); 
-    option = initOption(graph);
-    myChart.setOption(option);
     var community = {{community}}
+    option = initOption(graph, community.length);
+    myChart.setOption(option);
     //corenode = JSON.parse(corenode);
     var communityEdge = {{communityEdge}}
     var edgeNum = {{edgeNum}};
@@ -86,7 +86,7 @@
       })
     }
 
-    function initOption(graph){
+    function initOption(graph, cNum){
     var option;
     var categories = [];
     categories[0] = {
