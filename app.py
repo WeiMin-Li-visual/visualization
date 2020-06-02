@@ -128,15 +128,19 @@ def init_network(data_path):
             'y': node_coordinate[node][1]
         })
     links_data_json = []
+    cur_edges = []
     for link in network:
-        link_id = len(links_data_json)
-        links_data_json.append({
-            'id': str(link_id),
-            'lineStyle': {'normal': {}},
-            'name': 'null',
-            'source': str(link[0] - 1),
-            'target': str(link[1] - 1)
-        })
+        edge = [link[1], link[0]]
+        if edge not in cur_edges:
+            link_id = len(links_data_json)
+            links_data_json.append({
+                'id': str(link_id),
+                'lineStyle': {'normal': {}},
+                'name': 'null',
+                'source': str(link[0] - 1),
+                'target': str(link[1] - 1)
+            })
+            cur_edges.append(link)
     graph_data_json['nodes'] = nodes_data_json
     graph_data_json['links'] = links_data_json
     graph_data = json.dumps(graph_data_json)
@@ -413,6 +417,7 @@ def set_influence_degree(seed, m,edgeNum):  # 胡莎莎
 app = Flask(__name__)
 app.secret_key = 'lisenzzz'
 networkTemp, number_of_nodes, graph_data = init_network('static/data/Wiki.txt')
+network_synfix, num_nodes_synfix, graph_data_synfix = init_network('static/data/synfix_3.t01.edges')
 
 
 @app.route('/')
@@ -1028,6 +1033,240 @@ def ECDR():
     return render_template('EDCR.html', graph_data=graph_data1, community=C,
                            communityEdge=communityEdge, edgeNum=edgeNum)
 
+
+@app.route('/StaticMOACD')
+def StaticMOACD():
+    """
+    基于社交网络属性的多目标优化静态社区划分
+    author:张财、邓志斌
+    date:2020年6月1日
+    """
+    import networkx as nx
+    import random
+    import math
+    import numpy as np
+    from numpy import mat
+    from numpy import trace
+
+    # 求出度矩阵和B矩阵
+    def deg_and_B(G):
+        node_len = len(G.nodes)
+        m2 = 2 * G.number_of_edges()
+        # 构造邻接矩阵A
+        A = np.zeros((node_len, node_len), int)
+        for node in G.nodes:
+            for nh in G.neighbors(node):
+                A[node - 1][nh - 1] = 1
+        # 度矩阵
+        Degree = np.zeros(node_len, int)
+        for i in list(G.nodes):
+            k = sum(A[i - 1])
+            Degree[i - 1] = k
+        # 构造B矩阵
+        B = np.zeros((node_len, node_len))
+        for i in list(G.nodes):
+            ki = Degree[i - 1]
+            for j in list(G.nodes):
+                kj = Degree[j - 1]
+                B[i - 1][j - 1] = A[i - 1][j - 1] - ki * kj / m2
+        # print(B)
+        return Degree, B
+
+    def cal_Q(partition, node_len, m2, B):
+        s_cor = len(partition)
+        S_labels = np.zeros([node_len, s_cor], int)
+        for i in range(s_cor):
+            for j in partition[i]:
+                S_labels[j - 1][i] = 1
+        S_labels = mat(S_labels)
+        Q = 1 / m2 * (trace(S_labels.T * B * S_labels))
+        return Q
+
+    # 论文中3.3.2初始化：公式(3.7)
+    def select_probability(G):
+        node_set = list(G.nodes)  # 节点集合
+        len_node_set = len(node_set)
+        # 保存每个节点的邻居的个数
+        # 前提是网络节点连续排好，中间没有缺失
+        nodenh_set = [0] * len_node_set  # 每个节点的邻居集合
+        nodenh_lenset = [0] * len_node_set  # 每个节点的邻居集合的长度
+        for node in node_set:
+            nh = list(G.neighbors(node))
+            nodenh_lenset[node - 1] = len(nh)
+            nodenh_set[node - 1] = list(G.neighbors(node))
+        # i和j有边的共同邻居相似度
+        select_pro = []
+        for node in node_set:
+            # 字典{邻居节点:共同邻居数,邻居节点:共同邻居数,...}
+            sim_sum = 0  # 每个节点所有邻居相似度之和
+            sim_set = []
+            neis_set = nodenh_set[node - 1]
+            for nei in neis_set:
+                nei_neis_set = nodenh_set[nei - 1]
+                # 交集
+                d = [n for n in neis_set if n in nei_neis_set]
+                # 计算相似度
+                s = float(len(d) + 1) / math.sqrt(nodenh_lenset[node - 1] * nodenh_lenset[nei - 1])
+                sim_set.append(s)
+                sim_sum += s
+            nei_pro = {}
+            for i in range(nodenh_lenset[node - 1]):
+                pro = sim_set[i] / sim_sum
+                nei_pro.update({neis_set[i]: pro})
+            select_pro.append([node, nei_pro])
+        select_pro = sorted(select_pro, key=(lambda x: x[0]))
+        return select_pro
+
+    # 计算论文公式(3.10)
+    def silhouette(G, partition):
+        GS = 0.0
+        for index, community in enumerate(partition):
+            result = 0.0
+            community_len = len(community)
+            for i in range(community_len):
+                # 求ai---每个点与社区内其他点平均相似度
+                degree = sum([1 for j in range(community_len) if G.has_edge(community[i], community[j])])
+                ai = degree / community_len
+                # 求bi --节点i与其他社区节点最大平均相似度
+                other_sim = [sum([1 for j in range(len(other_community)) if
+                                  G.has_edge(community[i], other_community[j])]) / len(other_community)
+                             for index1, other_community in enumerate(partition) if index1 != index]
+                if other_sim:
+                    bi = max(other_sim)
+                else:
+                    bi = 0  # 有问题
+                if max(ai, bi) == 0:
+                    result += 0
+                else:
+                    result += (ai - bi) / max(ai, bi) / community_len
+            GS += result / len(partition)
+        return GS
+
+    # 帕累托最优解集合
+    def pareto(pop_ns, pop_partition, pop_value):
+        '''
+        # 非支配规则:a所有目标值不小于b,并且至少有一个目标值比b大，则a支配b
+        :param pop_value:
+        :return:
+        '''
+
+        non = []
+        # 将解集复制给非支配解集
+        for i in range(len(pop_value)):
+            non.append(pop_value[i][:])
+        for i in range(-len(non), -1):
+            for j in range(i + 1, 0):
+                # print non[i], non[j]
+                if non[i][1] == non[j][1] and non[i][2] == non[j][2]:
+                    # print i,"deng"
+                    non.remove(non[i])
+                    # print non
+                    break
+                elif ((non[i][1] >= non[j][1]) and (non[i][2] >= non[j][2])) and (
+                        (non[i][1] > non[j][1]) or (non[i][2] > non[j][2])):
+                    # a[i][0]支配a[j][0]
+                    # print "ai支配aj"
+                    non.remove(non[j])
+                    break
+                elif ((non[j][1] >= non[i][1]) and (non[j][2] >= non[i][2])) and (
+                        (non[j][1] > non[i][1]) or (non[j][2] > non[i][2])):
+                    # print "aj支配ai"
+                    non.remove(non[i])
+                    break
+        rep_ns = []         # 帕累托最优解的节点邻接表示集合
+        rep_partition = []  # 帕累托最优解的分区方案集合
+        rep_num = len(non)  # 帕累托最优解的个数
+        for i in range(rep_num):
+            j = non[i][0]
+            rep_ns.append(pop_ns[j])
+            rep_partition.append(pop_partition[j])
+        return rep_ns, rep_partition, non
+
+    # 基因漂流，就是论文算法1邻居从众策略
+    def turbulence(G, indi):
+        G3 = nx.Graph()  # 解码后（稀疏）的图
+        for node_cp in indi:
+            G3.add_edge(node_cp[0], node_cp[1])
+        components = [list(c) for c in list(nx.connected_components(G3))]
+        components_len = len(components)
+        for j in range(len(indi)):
+            node = indi[j][0]
+            nei = [n for n in G.neighbors(node)]
+            # 记录邻居的集群标签
+            nei_com = []  # 邻居集群的位置
+            for x in range(len(components)):
+                nei_com.append([n for n in nei if n in components[x]])
+            # 选出最多邻居的集群
+            max_nei_com = nei_com[int(np.argmax([len(nei_com[m]) for m in range(len(nei_com))]))]
+            # 从最多数量的邻居分区中随机选一个值
+            if indi[j][1] not in max_nei_com:
+                indi[j] = [node, random.sample(max_nei_com, 1)[0]]
+        return indi
+
+    # 基因变异，就是论文算法2邻居多样策略
+    def mutation(G, indi):
+        for j in range(len(indi)):
+            node = indi[j][0]
+            t = [n for n in G.neighbors(node)]
+            t.remove(indi[j][1])
+            if t:
+                indi[j] = [node, random.sample(t, 1)[0]]
+        return indi
+
+    # 初始社区划分方案，方案个数为100
+    def init_community(G, B, N=100):
+        node_num = G.number_of_nodes()
+        m2 = 2 * G.number_of_edges()
+        pop_ns = []         #社区的节点邻接表示集合，键值对
+        pop_partition = []  #社区的分区方案集合
+        pop_value = []      #所有方案的目标结果集合
+        # 计算节点之间的选择概率
+        select_pro = select_probability(G)
+        # 生成N中划分方案
+        for i in range(N):
+            G2 = nx.Graph() #邻接表示解码后的图
+            indi = []       #每个节点的基于轨迹的邻接表示
+            # 生成划分方案
+            for m in range(node_num):
+                nei_pro = select_pro[m][1]  #节点m+1的所有邻居节点的选择概率
+                # 按照概率随机选择一个节点
+                ran = random.random()   #生成一个0-1的随机数
+                rate_sum = 0
+                select_node = 1         #被节点m+1选中的邻居节点
+                for neighbor, rate in nei_pro.items():
+                    rate_sum += rate
+                    if ran < rate_sum:
+                        select_node = neighbor
+                        break
+                indi.append([m+1, select_node])
+                G2.add_edge(m+1, neighbor)
+            pop_ns.append(indi)
+            components = [list(c) for c in list(nx.connected_components(G2))]   #G2的分区
+            Q = cal_Q(components, node_num, m2, B)  #计算该划分方案的模块度
+            GS = silhouette(G, components)          #计算GS值
+            pop_partition.append(components)
+            pop_value.append([i, Q, GS])
+        return pop_ns, pop_partition, pop_value
+
+    G = nx.Graph()      #图数据
+    for edge in network_synfix:
+        G.add_edge(edge[0], edge[1])
+    Degree, B = deg_and_B(G)    #度矩阵和B矩阵，B矩阵用于模块度计算
+    # 初始社区划分方案
+    pop_ns, pop_partition, pop_value = init_community(G, B)
+    # 求解帕累托最优解
+    rep_ns, rep_partition, rep_value = pareto(pop_ns, pop_partition, pop_value)
+    rep_par = json.dumps(rep_partition)     #传给前端的帕累托最优划分方案
+    # print(G.number_of_nodes(), G.number_of_edges())
+    # print('rep_value:\n', rep_value)
+    # print('rep_ns:\n', rep_ns)
+    # print('rep_partition:\n', rep_partition)
+    # for par in rep_partition:
+    #     print(len(par))
+
+
+
+    return render_template('StaticMOACD.html', graph_data=graph_data_synfix, rep_par=rep_par)
 
 if __name__ == '__main__':
     app.run(debug=True)

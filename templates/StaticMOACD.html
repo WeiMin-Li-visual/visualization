@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html style="height: 100%; initial-scale: 0.1">
+<head>
+    <meta charset="UTF-8">
+    <title>多目标优化静态社区发现算法划分过程</title>
+</head>
+<body style="height: 100%; margin: 0">
+<div id="container" style="height: 100%"></div>
+<script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript" src="/static/js/function.js"></script>
+<script type="text/javascript">
+    var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var option;
+    var graph = {{ graph_data | tojson }}//获取后端返回的图数据
+    graph = init_graph(graph);           //初始化图数据
+    option = init_option(graph);         //初始化属性
+    myChart.setOption(option);           //执行该语句就可以根据你设置的属性进行图的生成
+
+    //展示帕累托最优解里面的初始划分方案
+    var rep_par = {{ rep_par }};    //获取后端返回的帕累托最优解
+    var rep_num = rep_par.length;   //帕累托最优解个数
+    var cur_par_id = 0;             //当前划分方案序号
+    var partition;                  //当前划分方案
+    //console.log(rep_par)
+    interval_no= setInterval(function(){
+        partition = rep_par[cur_par_id];
+        option = set_node_category(option, partition);  //设置节点类别
+        //console.log(partition);
+        myChart.setOption(option);
+        if(cur_par_id == rep_num-1){
+            clearInterval(interval_no);
+        }
+        cur_par_id ++;
+    }, 2500);
+
+
+
+
+    function set_node_category(option, partition){//根据partition里的社区划分方案设置节点的类别
+        var com_num = partition.length;     //社区个数
+        var colors = ['red', 'green', 'blue', 'yellow', 'pink', 'orange', 'purple', '#2f4554', '#0049f6', '#9f44f8'];
+        var categories = [];
+        for(var i = 0; i < com_num; i++){   //设置每个社区的类别属性
+            categories[i] = {
+                name: '社区'+(i+1),
+                itemStyle: {
+                    color: colors[i],
+                    opacity: 1, //不透明度
+                },
+                label: {
+                    fontSize: 15,
+                },
+            };
+        }
+        for(var i = 0; i < com_num; i++){   //根据partition设置每个节点的类别
+            var community = partition[i];   //社区i中的节点
+            var com_node_num = community.length;    //社区i的节点个数
+            for(var j = 0; j < com_node_num; j++){
+                node = community[j] - 1;
+                graph.nodes[node].category = i;
+            }
+        }
+        //更改option
+        option.legend = [{
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }];
+        option.title = {
+            text: '初始化社区划分方案的Pareto最优解',
+            subtext: '当前方案为：方案' + (cur_par_id+1),
+            top: 'top',
+            left: 'left'
+        }
+        option.series[0].categories = categories;
+        option.series[0].data = graph.nodes;
+        option.series[0].links = graph.links;
+        return option;
+    }
+
+
+</script>
+</body>
+</html>
