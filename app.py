@@ -34,7 +34,7 @@ def init_network(data_path):
         # 计算每条边的引力对两端节点所产生的单位位移
         def updateSpring(node_coordinate, network):
             import math
-            number_of_nodes = 105
+            # number_of_nodes = 105
             k = math.sqrt(1024 * 768 / number_of_nodes)
             condenseFactor = 5  # 引力系数
             for i in range(len(network)):
@@ -52,7 +52,7 @@ def init_network(data_path):
         # 更新坐标位置
         def update(node_coordinate):
             import math
-            number_of_nodes = 105
+            # number_of_nodes = 105
             maxtx = 4
             maxty = 3
             for i in range(number_of_nodes):
@@ -1263,6 +1263,7 @@ def StaticMOACD():
     # print('rep_partition:\n', rep_partition)
     # for par in rep_partition:
     #     print(len(par))
+
 
 
 
