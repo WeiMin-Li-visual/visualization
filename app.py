@@ -8,93 +8,11 @@ import copy
 # 初始化网络
 # input: data_path
 # output: network, node_num, graph_data
+# 节点布局改进
+# author: 邓志斌
+# date: 2020年6月2日19:55:52
 def init_network(data_path):
-    # 初始化节点坐标
-    def init_cordinate(network, number_of_nodes):
-        # 计算局部区域内两两节点间的斥力所产生的单位位移
-        def updateReplusion(node_coordinate, number_of_nodes):
-            import math
-            ejectFactor = 6  # 斥力系数
-            k = math.sqrt(1024 * 768 / number_of_nodes)
-            for i in range(number_of_nodes):
-                node_coordinate[i].append(0)
-                node_coordinate[i].append(0)
-                for j in range(number_of_nodes):
-                    if (i != j):
-                        dx = node_coordinate[i][0] - node_coordinate[j][0]  # 两个节点x坐标位置的距离
-                        dy = node_coordinate[i][1] - node_coordinate[j][1]  # 两个节点y坐标位置的距离
-                        dist = math.sqrt(dx * dx + dy * dy)  # 两个节点之间的距离
-                        if (dist < 30):
-                            ejectFactor = 5
-                        if (dist > 0 and dist < 250):
-                            node_coordinate[i][2] += dx / dist * k / dist * ejectFactor
-                            node_coordinate[i][3] += dy / dist * k / dist * ejectFactor
-            return node_coordinate
-
-        # 计算每条边的引力对两端节点所产生的单位位移
-        def updateSpring(node_coordinate, network):
-            import math
-            number_of_nodes = 105
-            k = math.sqrt(1024 * 768 / number_of_nodes)
-            condenseFactor = 5  # 引力系数
-            for i in range(len(network)):
-                start = network[i][0] - 1
-                end = network[i][1] - 1
-                dx = node_coordinate[start][0] - node_coordinate[end][0]
-                dy = node_coordinate[start][1] - node_coordinate[end][1]
-                dist = math.sqrt(dx * dx + dy * dy)
-                node_coordinate[start][2] -= dx * dist / k * condenseFactor
-                node_coordinate[start][3] -= dy * dist / k * condenseFactor
-                node_coordinate[end][2] += dx * dist / k * condenseFactor
-                node_coordinate[end][3] += dy * dist / k * condenseFactor
-            return node_coordinate
-
-        # 更新坐标位置
-        def update(node_coordinate):
-            import math
-            number_of_nodes = 105
-            maxtx = 4
-            maxty = 3
-            for i in range(number_of_nodes):
-                dx = math.floor(node_coordinate[i][2])
-                dy = math.floor(node_coordinate[i][3])
-                if dx < -maxtx:
-                    dx = -maxtx
-                if dx > maxtx:
-                    dx = maxtx
-                if dy < -maxty:
-                    dy = -maxty
-                if dy > maxty:
-                    dy = maxty
-                if node_coordinate[i][0] + dx >= 1024 or node_coordinate[i][0] + dx <= 0:
-                    node_coordinate[i][0] -= dx
-                else:
-                    node_coordinate[i][0] += dx
-                if node_coordinate[i][1] + dy >= 768 or node_coordinate[i][1] + dy <= 0:
-                    node_coordinate[i][1] -= dy
-                else:
-                    node_coordinate[i][1] += dy
-                # node_coordinate[i][0]+=dx
-                # node_coordinate[i][1]+=dy
-            return node_coordinate
-
-        # 力导向算法
-        def forceDirect(network, number_of_nodes):
-            random.seed(750)
-            node_coordinate = []  # 存放节点的坐标及节点之间的斥力，[x坐标，y坐标,force_x.force_y]
-            for node in range(number_of_nodes):
-                node_coordinate.append([])
-                node_coordinate[node].append(500 + 40 * (random.random() - 0.5))
-                node_coordinate[node].append(500 + 40 * (random.random() - 0.5))
-                # node_coordinate[node].append(0)
-                # node_coordinate[node].append(0)
-            for i in range(500):
-                node_coordinate = updateReplusion(node_coordinate, number_of_nodes)
-                node_coordinate = updateSpring(node_coordinate, network)
-                node_coordinate = update(node_coordinate)
-            return node_coordinate
-
-        return forceDirect(network, number_of_nodes)
+    import networkx as nx
 
     # 读入数据
     network_file = open(data_path)
@@ -103,6 +21,7 @@ def init_network(data_path):
         line_split = each_line.split()
         network.append([int(line_split[0]), int(line_split[1])])
     network_file.close()
+
     # 计算节点个数
     nodes = set({})
     for each_link in network:
@@ -110,7 +29,18 @@ def init_network(data_path):
         nodes.add(each_link[1])
     node_num = len(nodes)
 
-    node_coordinate = init_cordinate(network, node_num)  # 节点的坐标
+    # 记录每个节点的位置信息
+    G = nx.Graph(network)
+    pos = nx.drawing.spring_layout(G)
+
+    node_coordinate = []
+    for i in range(node_num):
+        node_coordinate.append([])
+    for i, j in pos.items():
+        # 需要说明的是网络图节点是从1开始的，如果从0开始的，下面不需要减1
+        node_coordinate[i - 1].append(float(j[0]))
+        node_coordinate[i - 1].append(float(j[1]))
+
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
     nodes_data_json = []
@@ -412,7 +342,9 @@ def set_influence_degree(seed, m,edgeNum):  # 胡莎莎
 
 app = Flask(__name__)
 app.secret_key = 'lisenzzz'
-networkTemp, number_of_nodes, graph_data = init_network('static/data/Wiki.txt')
+path='static/data/synfix/z_3/synfix_3.t01.edges'
+path1='static/data/Wiki.txt'
+networkTemp, number_of_nodes, graph_data = init_network(path)
 
 
 @app.route('/')
