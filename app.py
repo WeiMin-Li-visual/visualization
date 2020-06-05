@@ -1221,6 +1221,27 @@ def StaticMOACD():
                 npop_ns[i] = turbulence(G, npop_ns[i])  # 邻居从众策略
                 method = 1
 
+            # 记录第1次更新
+            if i == 0:
+                # 记录此次选中的方案
+                G_de = nx.Graph()
+                for edge in t_ns:
+                    G_de.add_edge(edge[0], edge[1])
+                t_components = [list(c) for c in list(nx.connected_components(G_de))]
+                up_par_gen.append(t_components)
+
+                # 记录每个节点更新后的社区所属
+                t_record = [0] * node_num
+                record = [0] * node_num
+                com_id = 0  # 社区编号
+                for community in t_components:
+                    for node in community:
+                        t_record[node - 1] = com_id
+                    com_id += 1
+                for edge in npop_ns[i]:
+                    record[edge[0]-1] = t_record[edge[1]-1]
+                record_gen.append([method, record])
+
             # 判断是否新值旧值支配情况
             G_new = nx.Graph()
             for node_cp in npop_ns[i]:
@@ -1240,23 +1261,6 @@ def StaticMOACD():
             else:
                 npop_ns[i] = pop_ns[i]
 
-            # 记录第1次更新
-            if i == 0:
-                # 记录此次选中的方案
-                G_de = nx.Graph()
-                for edge in t_ns:
-                    G_de.add_edge(edge[0], edge[1])
-                t_components = [list(c) for c in list(nx.connected_components(G_de))]
-                up_par_gen.append(t_components)
-
-                # 记录每个节点更新后的社区所属
-                record = [0] * G.number_of_nodes()
-                com_id = 0  # 社区编号
-                for community in components:
-                    for node in community:
-                        record[node - 1] = com_id
-                    com_id += 1
-                record_gen.append([method, record])
 
         npop_gv_i = []
         for i in range(len(npop_good_value)):
@@ -1301,3 +1305,4 @@ def StaticMOACD():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
