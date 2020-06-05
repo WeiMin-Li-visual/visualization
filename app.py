@@ -1106,10 +1106,11 @@ def StaticMOACD():
         rep_ns = []         # 帕累托最优解的节点邻接表示集合
         rep_partition = []  # 帕累托最优解的分区方案集合
         rep_num = len(non)  # 帕累托最优解的个数
-        for i in range(rep_num):
-            j = non[i][0]
-            rep_ns.append(pop_ns[j])
-            rep_partition.append(pop_partition[j])
+        if len(pop_ns) == len(pop_value):   #只针对初始化方案
+            for i in range(rep_num):
+                j = non[i][0]
+                rep_ns.append(pop_ns[j])
+                rep_partition.append(pop_partition[j])
         return rep_ns, rep_partition, non
 
     # 基因漂流，就是论文算法1邻居从众策略
@@ -1141,6 +1142,7 @@ def StaticMOACD():
             t.remove(indi[j][1])
             if t:
                 indi[j] = [node, random.sample(t, 1)[0]]
+
         return indi
 
     # 初始社区划分方案，方案个数为100
@@ -1181,6 +1183,8 @@ def StaticMOACD():
     G = nx.Graph()      #图数据
     for edge in network_synfix:
         G.add_edge(edge[0], edge[1])
+    node_num = G.number_of_nodes()
+    edge_num = G.number_of_edges()
     Degree, B = deg_and_B(G)    #度矩阵和B矩阵，B矩阵用于模块度计算
     # 初始社区划分方案
     pop_ns, pop_partition, pop_value = init_community(G, B)
@@ -1188,7 +1192,112 @@ def StaticMOACD():
     rep_ns, rep_partition, rep_value = pareto(pop_ns, pop_partition, pop_value)
     rep_par = json.dumps(rep_partition)     #传给前端的帕累托最优划分方案
 
-    return render_template('StaticMOACD.html', graph_data=graph_data_synfix, rep_par=rep_par)
+    # 迭代更新解决方案
+    genmax = 20             # 最大迭代次数
+    gen = 0                 # 当前迭代次数
+    best_gen = []           # 迭代过程中最好的值
+    gen_equal = 0           # 多目标值相等的次数
+    updated_par = []        # 记录每次迭代中被选中更新的分区方案
+    node_update_rec = []    # 每次迭代对应方案的每个节点的更新记录
+    while gen < genmax and gen_equal < 10:
+        npop_ns = copy.deepcopy(pop_ns)  # 深拷贝
+        npop_good_value = []      # 更新后较好的多目标值
+        npop_good_partition = []  # 更新后较好的划分方案
+        nrep_value = []           # 新的帕累托最优多目标值
+        nrep_ns = []              # 新的帕累托节点邻接表示
+        nrep_partition = []       # 新的帕累托社区划分方案
+        method = 1                # 更新策略
+        update_num = 10           # 每次迭代的更新次数
+        record_gen = []           # 第gen次迭代的所有节点更新记录
+        up_par_gen = []           # 第gen次迭代中被选中更新的划分方案
+        for i in range(update_num):
+            npop_ns[i] = random.sample(rep_ns, 1)[0]  # 随机从帕累托前沿中选择一个方案
+            t_ns = copy.deepcopy(npop_ns[i])             # 暂存当前选中的方案
+            # 随机选择一种算法更新
+            if random.random() < 0.2:
+                npop_ns[i] = mutation(G, npop_ns[i])  # 邻居多样策略
+                method = 2
+            else:
+                npop_ns[i] = turbulence(G, npop_ns[i])  # 邻居从众策略
+                method = 1
+
+            # 判断是否新值旧值支配情况
+            G_new = nx.Graph()
+            for node_cp in npop_ns[i]:
+                G_new.add_edge(node_cp[0], node_cp[1])
+            components = [list(c) for c in list(nx.connected_components(G_new))]
+            Q = cal_Q(components, node_num, 2*edge_num, B)
+            GS = silhouette(G, components)
+            # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧址
+            if (Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2]):
+                no_dominate = False
+            else:
+                no_dominate = True
+            # 支配，新值直接输出，否则，改为旧值
+            if no_dominate:
+                npop_good_value.append([i + (1 + gen) * 100, Q, GS])  # 新值加编号100处理
+                npop_good_partition.append(components)
+            else:
+                npop_ns[i] = pop_ns[i]
+
+            # 记录第1次更新
+            if i == 0:
+                # 记录此次选中的方案
+                G_de = nx.Graph()
+                for edge in t_ns:
+                    G_de.add_edge(edge[0], edge[1])
+                t_components = [list(c) for c in list(nx.connected_components(G_de))]
+                up_par_gen.append(t_components)
+
+                # 记录每个节点更新后的社区所属
+                record = [0] * G.number_of_nodes()
+                com_id = 0  # 社区编号
+                for community in components:
+                    for node in community:
+                        record[node - 1] = com_id
+                    com_id += 1
+                record_gen.append([method, record])
+
+        npop_gv_i = []
+        for i in range(len(npop_good_value)):
+            npop_gv_i.append(npop_good_value[i][0])
+
+        # 帕累托最优解集合
+        all_value = rep_value + npop_good_value
+        # nrep_value = pareto(all_value)
+        ns, par, nrep_value = pareto(pop_ns, pop_partition, all_value)
+        # rep_value 位置
+        rep_gv_i = []
+        for i in range(len(rep_value)):
+            rep_gv_i.append(rep_value[i][0])
+        for i in range(len(nrep_value)):
+            j = nrep_value[i][0]
+            if j < 100 * (gen + 1):
+                nrep_ns.append(rep_ns[rep_gv_i.index(j)])
+                nrep_partition.append(rep_partition[rep_gv_i.index(j)])
+            else:
+                nrep_ns.append(npop_ns[j % 100])
+                nrep_partition.append(npop_good_partition[npop_gv_i.index(j)])
+
+        rep_ns = nrep_ns
+        rep_value = nrep_value
+        rep_partition = nrep_partition
+
+        #保存当前迭代的更新记录
+        updated_par.append(up_par_gen)
+        node_update_rec.append(record_gen)
+
+        # 迭代终止条件
+        best_gen.append(sorted(rep_value, key=lambda x: x[1], reverse=True)[0])
+        if gen >= 1 and best_gen[gen][1:] == best_gen[gen - 1][1:]:
+            gen_equal += 1
+        gen += 1
+    updated_par = json.dumps(updated_par)
+    node_update_rec = json.dumps(node_update_rec)
+
+    return render_template('StaticMOACD.html', graph_data=graph_data_synfix, rep_par=rep_par
+                           , updated_par=updated_par, node_update_rec=node_update_rec)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
