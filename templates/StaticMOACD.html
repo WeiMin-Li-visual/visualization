@@ -32,6 +32,7 @@
     //展示每次迭代方案的更新过程
     var updated_par = {{ updated_par }};         //每次迭代被更新过的划分方案
     var node_update_rec = {{ node_update_rec }}; //每个节点的更新记录，包括更新策略和更新后的社区所属
+    var best_partition = {{ best_partition }};   //迭代结束后最好的分区方案
     var iter_num = updated_par.length;           //迭代次数
     var iter = 0;                                //当前迭代次数
     var node_num = graph.nodes.length;           //节点个数
@@ -85,10 +86,16 @@
                 par_cur = 0;
                 if(iter == iter_num){
                     clearInterval(interval_prc);
+                    option = set_node_category(option, partition);
+                    option.title = {
+                        text: '迭代结束 最好社区划分方案',
+                        subtext: '',
+                    }
+                    myChart.setOption(option);
                 }
             }
         }
-    }, time);
+    }, 1500);
 
 
 

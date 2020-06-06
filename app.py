@@ -1296,11 +1296,17 @@ def StaticMOACD():
         if gen >= 1 and best_gen[gen][1:] == best_gen[gen - 1][1:]:
             gen_equal += 1
         gen += 1
+        
+    best = sorted(rep_value, key=lambda x: x[1], reverse=True)[0]
+    best_location = rep_value.index(best)
+    best_partition = rep_partition[best_location]
+
     updated_par = json.dumps(updated_par)
     node_update_rec = json.dumps(node_update_rec)
+    best_partition = json.dumps(best_partition)
 
-    return render_template('StaticMOACD.html', graph_data=graph_data_synfix, rep_par=rep_par
-                           , updated_par=updated_par, node_update_rec=node_update_rec)
+    return render_template('StaticMOACD.html', graph_data=graph_data_synfix, rep_par=rep_par,
+                           updated_par=updated_par, node_update_rec=node_update_rec, best_partition=best_partition)
 
 
 if __name__ == '__main__':
