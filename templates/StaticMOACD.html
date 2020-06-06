@@ -86,7 +86,7 @@
                 par_cur = 0;
                 if(iter == iter_num){
                     clearInterval(interval_prc);
-                    option = set_node_category(option, partition);
+                    option = set_node_category(option, best_partition);
                     option.title = {
                         text: '迭代结束 最好社区划分方案',
                         subtext: '',
@@ -95,7 +95,7 @@
                 }
             }
         }
-    }, 1500);
+    }, 150);
 
 
 
