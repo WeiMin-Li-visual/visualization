@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html style="height: 100%; initial-scale: 0.1">
+<head>
+    <meta charset="UTF-8">
+    <title>多目标优化动态社区发现算法划分过程</title>
+</head>
+<body style="height: 100%; margin: 0">
+<div id="container" style="height: 100%"></div>
+<script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript" src="/static/js/function.js"></script>
+<script type="text/javascript">
+    var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var option;
+    var all_graph = {{ all_graph_data | tojson }}//获取后端返回的图数据
+    graph = init_graph(graph);           //初始化图数据
+    option = init_option(graph);         //初始化属性
+    myChart.setOption(option);           //执行该语句就可以根据你设置的属性进行图的生成
+
+    //展示帕累托最优解里面的初始划分方案
+    var all_best_components = {{ all_best_components }};    //获取后端返回的帕累托最优解
+    var rep_num = rep_par.length;   //帕累托最优解个数
+    var cur_par_id = 0;             //当前划分方案序号
+    var partition;                  //当前划分方案
+    function show_init(){
+        partition = rep_par[cur_par_id];
+        option = set_node_category(option, partition);  //设置节点类别
+        myChart.setOption(option);
+        cur_par_id ++;
+    }
+
+    //展示每次迭代方案的更新过程
+    var updated_par = {{ updated_par }};         //每次迭代被更新过的划分方案
+    var node_update_rec = {{ node_update_rec }}; //每个节点的更新记录，包括更新策略和更新后的社区所属
+    var best_partition = {{ best_partition }};   //迭代结束后最好的分区方案
+    var iter_num = updated_par.length;           //迭代次数
+    var iter = 0;                                //当前迭代次数
+    var node_num = graph.nodes.length;           //节点个数
+    var node = node_num;                         //当前节点
+    var par_num = updated_par[0].length;         //每次迭代要更新的方案的个数
+    var par_cur = 0;                             //第iter次迭代中的当前划分方案编号
+    var record = [];                             //当前要展示的节点更新记录
+    var method = 1;                              //当前更新策略
+    var time = 1500;                             //循环时间
+    interval_prc = setInterval(function(){
+        if(cur_par_id < rep_num){ //展示初始划分方案
+            show_init();
+        }
+        else{                     //展示方案更新过程
+            if(node == node_num){     //上个方案更新过程展示完毕，展示当前要更新的社区划分方案
+                partition = updated_par[iter][par_cur];
+                method = node_update_rec[iter][par_cur][0];
+                (method = 1) ? method='邻居从众策略' : method='邻居多样策略';
+                record = node_update_rec[iter][par_cur][1];
+                option = set_node_category(option, partition);
+                option.title = {
+                    text: '第' + (iter+1) + '次迭代' + ' 方案' + (par_cur+1) + ' '+method,
+                    subtext: '',
+                    top: 'top',
+                    left: 'left'
+                }
+                myChart.setOption(option);
+                par_cur++;
+                node = 0;
+            }
+            else{                     //展示节点node的更新
+                graph.nodes[node].symbolSize = 30;
+                graph.nodes[node].category = record[node];
+                myChart.setOption({
+                    title: {
+                        subtext: '节点' + node + '的更新'
+                    },
+                    series: [
+                        {
+                            data: graph.nodes,
+                            links: graph.links
+                        }
+                    ]
+                });
+                graph.nodes[node].symbolSize = 15;
+                node++;
+            }
+            //判断当前迭代是否全部展示完毕
+            if((par_cur == par_num)&&(node == node_num-1)){
+                iter++;
+                par_cur = 0;
+                if(iter == iter_num){
+                    clearInterval(interval_prc);
+                    option = set_node_category(option, best_partition);
+                    option.title = {
+                        text: '迭代结束 最好社区划分方案',
+                        subtext: '',
+                    }
+                    myChart.setOption(option);
+                }
+            }
+        }
+    }, 150);
+
+
+
+    function set_node_category(option, partition){//根据partition里的社区划分方案设置节点的类别
+        var com_num = partition.length;     //社区个数
+        var colors = ['red', 'green', 'blue', 'yellow', 'pink', 'orange', 'purple', '#2f4554', '#0049f6', '#9f44f8'];
+        var categories = [];
+        var node = 0;
+        for(var i = 0; i < com_num; i++){   //设置每个社区的类别属性
+            categories[i] = {
+                name: '社区'+(i+1),
+                itemStyle: {
+                    color: colors[i],
+                    opacity: 1, //不透明度
+                },
+                label: {
+                    fontSize: 15,
+                },
+            };
+        }
+        for(var i = 0; i < com_num; i++){   //根据partition设置每个节点的类别
+            var community = partition[i];   //社区i中的节点
+            var com_node_num = community.length;    //社区i的节点个数
+            for(var j = 0; j < com_node_num; j++){
+                node = community[j] - 1;
+                graph.nodes[node].category = i;
+            }
+        }
+        //更改option
+        option.legend = [{
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }];
+        option.title = {
+            text: '初始化社区划分方案的Pareto最优解',
+            subtext: '当前方案为：方案' + (cur_par_id+1),
+            top: 'top',
+            left: 'left'
+        }
+        option.series[0].categories = categories;
+        option.series[0].data = graph.nodes;
+        option.series[0].links = graph.links;
+        return option;
+    }
+
+
+</script>
+</body>
+</html>
