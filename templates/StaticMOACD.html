@@ -50,7 +50,7 @@
             if(node == node_num){     //上个方案更新过程展示完毕，展示当前要更新的社区划分方案
                 partition = updated_par[iter][par_cur];
                 method = node_update_rec[iter][par_cur][0];
-                (method = 1) ? method='邻居从众策略' : method='邻居多样策略';
+                (method == 1) ? method='邻居从众策略' : method='邻居多样策略';
                 record = node_update_rec[iter][par_cur][1];
                 option = set_node_category(option, partition);
                 option.title = {
@@ -86,7 +86,7 @@
                 par_cur = 0;
                 if(iter == iter_num){
                     clearInterval(interval_prc);
-                    option = set_node_category(option, partition);
+                    option = set_node_category(option, best_partition);
                     option.title = {
                         text: '迭代结束 最好社区划分方案',
                         subtext: '',
@@ -95,12 +95,13 @@
                 }
             }
         }
-    }, 1500);
+    }, time);
 
 
 
     function set_node_category(option, partition){//根据partition里的社区划分方案设置节点的类别
         var com_num = partition.length;     //社区个数
+        console.log(com_num);
         var colors = ['red', 'green', 'blue', 'yellow', 'pink', 'orange', 'purple', '#2f4554', '#0049f6', '#9f44f8'];
         var categories = [];
         var node = 0;

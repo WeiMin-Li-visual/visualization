@@ -1203,15 +1203,16 @@ def StaticMOACD():
         npop_ns = copy.deepcopy(pop_ns)  # 深拷贝
         npop_good_value = []      # 更新后较好的多目标值
         npop_good_partition = []  # 更新后较好的划分方案
+        npop_good_ns = []         # 更新后较好的节点邻接表示
         nrep_value = []           # 新的帕累托最优多目标值
         nrep_ns = []              # 新的帕累托节点邻接表示
         nrep_partition = []       # 新的帕累托社区划分方案
         method = 1                # 更新策略
-        update_num = 10           # 每次迭代的更新次数
+        update_num = 10          # 每次迭代的更新次数
         record_gen = []           # 第gen次迭代的所有节点更新记录
         up_par_gen = []           # 第gen次迭代中被选中更新的划分方案
         for i in range(update_num):
-            npop_ns[i] = random.sample(rep_ns, 1)[0]  # 随机从帕累托前沿中选择一个方案
+            npop_ns[i] = copy.deepcopy(random.sample(rep_ns, 1)[0])  # 随机从帕累托前沿中选择一个方案
             t_ns = copy.deepcopy(npop_ns[i])             # 暂存当前选中的方案
             # 随机选择一种算法更新
             if random.random() < 0.2:
@@ -1249,43 +1250,42 @@ def StaticMOACD():
             components = [list(c) for c in list(nx.connected_components(G_new))]
             Q = cal_Q(components, node_num, 2*edge_num, B)
             GS = silhouette(G, components)
-            # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧址
-            if (Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2]):
+            # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧值
+            if (Q == 0.0) or ((Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2])):
                 no_dominate = False
             else:
                 no_dominate = True
             # 支配，新值直接输出，否则，改为旧值
             if no_dominate:
                 npop_good_value.append([i + (1 + gen) * 100, Q, GS])  # 新值加编号100处理
-                npop_good_partition.append(components)
+                npop_good_partition.append(copy.deepcopy(components))
+                npop_good_ns.append(copy.deepcopy(npop_ns[i]))
             else:
                 npop_ns[i] = pop_ns[i]
 
 
-        npop_gv_i = []
-        for i in range(len(npop_good_value)):
-            npop_gv_i.append(npop_good_value[i][0])
-
         # 帕累托最优解集合
         all_value = rep_value + npop_good_value
-        # nrep_value = pareto(all_value)
         ns, par, nrep_value = pareto(pop_ns, pop_partition, all_value)
         # rep_value 位置
         rep_gv_i = []
         for i in range(len(rep_value)):
             rep_gv_i.append(rep_value[i][0])
+        npop_gv_i = []
+        for i in range(len(npop_good_value)):
+            npop_gv_i.append(npop_good_value[i][0])
         for i in range(len(nrep_value)):
             j = nrep_value[i][0]
             if j < 100 * (gen + 1):
-                nrep_ns.append(rep_ns[rep_gv_i.index(j)])
-                nrep_partition.append(rep_partition[rep_gv_i.index(j)])
+                nrep_ns.append(copy.deepcopy(rep_ns[rep_gv_i.index(j)]))
+                nrep_partition.append(copy.deepcopy(rep_partition[rep_gv_i.index(j)]))
             else:
-                nrep_ns.append(npop_ns[j % 100])
-                nrep_partition.append(npop_good_partition[npop_gv_i.index(j)])
+                nrep_ns.append(copy.deepcopy(npop_good_ns[npop_gv_i.index(j)]))
+                nrep_partition.append(copy.deepcopy(npop_good_partition[npop_gv_i.index(j)]))
 
-        rep_ns = nrep_ns
-        rep_value = nrep_value
-        rep_partition = nrep_partition
+        rep_ns = copy.deepcopy(nrep_ns)
+        rep_value = copy.deepcopy(nrep_value)
+        rep_partition = copy.deepcopy(nrep_partition)
 
         #保存当前迭代的更新记录
         updated_par.append(up_par_gen)
@@ -1296,7 +1296,7 @@ def StaticMOACD():
         if gen >= 1 and best_gen[gen][1:] == best_gen[gen - 1][1:]:
             gen_equal += 1
         gen += 1
-        
+
     best = sorted(rep_value, key=lambda x: x[1], reverse=True)[0]
     best_location = rep_value.index(best)
     best_partition = rep_partition[best_location]
