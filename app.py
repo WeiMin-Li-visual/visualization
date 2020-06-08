@@ -829,7 +829,7 @@ def dyanmicMOACD_thread():
         best_partition = rep_partition[best_location]
         return best_partition
 
-    pop_N=10
+    pop_N=50
     T = 11  # 总时间步 一共T-1个时间步
 
     file_qian = "static/data/synfix/z_3/synfix_3.t"  # 文件名前缀
