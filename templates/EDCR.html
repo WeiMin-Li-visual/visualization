@@ -21,11 +21,18 @@
     var edgeNum = {{edgeNum}};
     //LocalClosedNeighbors = JSON.parse(LocalClosedNeighbors)
     var text = "第1个社区的发现过程"; 
-    var lineStyle = [{width: 6, color: '#009688'}, {width: 6, color: '#aa4554'}]
+    var lineStyle = [{width: 6, color: '#009688'},
+                     {width: 6, color: 'green'},
+                     {width: 6, color: 'red'},
+                     {width: 6, color:  'blue'},
+                     {width: 6, color: '#A35B21'},
+                     {width: 6, color: '#aa4554'},
+                     {width: 6, color: '#aa4554'},
+                     {width: 6, color: '#aa4554'},
+                    ]
     update_show(text,subtext,myChart);
     var nodeIndex = 0; //记录当前访问的节点的下标
     var communityNum = 0;
-    //var postNode = communityEdge[0][0][0];
     var currentNode = communityEdge[0][0][0]; //进行扩张的核心节点
     var subtext = "";
     intervalNo = setInterval(() => {
@@ -89,12 +96,25 @@
     function initOption(graph, cNum){
     var option;
     var categories = [];
+    color = ['#2f4554', '#009688', 'green', 'red', 'blue', '#A35B21']
     categories[0] = {
         name: '噪声节点',
         itemStyle: {
             color: '#2f4554',
             opacity: 0.9, //不透明度
         }
+    }
+    for(var i = 1; i <= cNum; ++i) {
+        categories[i] = {
+          name: '社区' + i,
+          itemStyle: {
+              color: color[i],
+              opacity: 1, //不透明度
+          },
+          label: {
+              fontSize: 20,
+          },
+    };
     }
     categories[1] = {
         name: '社区1',
@@ -106,16 +126,7 @@
             fontSize: 20,
         },
     };
-    categories[2] = {
-        name: '社区2',
-        itemStyle: {
-            color: '#aa4554',
-            opacity: 0.9, //不透明度
-        },
-        label: {
-            fontSize: 20,
-        }
-    }
+
     //设置要生成的图的相关属性
     option = {
         title: {

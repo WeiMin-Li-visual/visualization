@@ -59,8 +59,7 @@ def init_network(data_path):
     links_data_json = []
     cur_edges = []
     for link in network:
-        edge = [link[1], link[0]]
-        if edge not in cur_edges:
+        if link not in cur_edges:
             link_id = len(links_data_json)
             links_data_json.append({
                 'id': str(link_id),
@@ -125,7 +124,7 @@ def set_influence(seed, m, networkWeight, number_of_nodes, edgeNum):
     active = copy.deepcopy(seed)
     start = 0
     end = len(seed)
-    edge_location=[-1 for i in seed] #记录激活边的序号
+    edge_location = [-1 for i in seed]  # 记录激活边的序号
     while start != end:
         index = start
         while index < end:
@@ -139,7 +138,7 @@ def set_influence(seed, m, networkWeight, number_of_nodes, edgeNum):
         end = len(active)
     # print('active_num',active_num)
     # print(active)
-    return active,edge_location
+    return active, edge_location
 
 
 # 基于IC模型计算一个节点集合在10次模拟下激活的节点
@@ -154,14 +153,15 @@ def set_influence_IC_10(seed, m, networkWeight, edgeNum):
     """
     active = seed
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
-    edge_location=[-1 for i in seed]
+    edge_location = [-1 for i in seed]
     for simulation_count in range(0, 10):  # 模拟10次
         active_records.append([])
         edge_location.append([])
-        active_records[simulation_count],edge_location[simulation_count] = set_influence(active, m, networkWeight, number_of_nodes,
-                                                         edgeNum)  # 把这个节点的模拟结果存起来
+        active_records[simulation_count], edge_location[simulation_count] = set_influence(active, m, networkWeight,
+                                                                                          number_of_nodes,
+                                                                                          edgeNum)  # 把这个节点的模拟结果存起来
 
-    return active_records,edge_location
+    return active_records, edge_location
 
 
 # 基于LT模型计算一个节点集合在10次模拟下激活的节点
@@ -239,20 +239,19 @@ def set_influence_LT_10(seed, method):  # 胡莎莎
     # node_count = 0 记录当前在计算的节点个数，当列表下标用
     stimulate_round = 10  # 激活轮数
     count_influence = 0  # 记录当前节点10次模拟的影响力总和
-    edge_records=[]
+    edge_records = []
     for round in range(stimulate_round):  # 重新设置每个节点的阈值
         theta = []  # 保存每个节点的阈值
         for iteration in range(number_of_nodes):  # 为每个节点随机设置阈值
             theta.append(random.random())
-        l,k = set_influence_LT(active)
+        l, k = set_influence_LT(active)
         active_records.append(l)  # 保存被激活的节点，第一个参数为列表
         edge_records.append(k)
         count_influence += len(l)
 
-
     # 这里返回一个三维的数组  这是节点集合为1时返回的数据
     # active_node: [[[1], [1, 3], [1], [1], [1], [1], [1], [1, 3, 11, 12, 22, 27, 17, 23, 24, 41,54], [1], [1]]]
-    return active_records,edge_records
+    return active_records, edge_records
 
 
 # 基于pageRank算法计算一个节点集合的影响力
@@ -316,7 +315,7 @@ def set_influence_pageRank(seed, m):  # 胡莎莎
 
 
 # 基于最大度算法计算一个节点集合激活的节点
-def set_influence_degree(seed, m,edgeNum):  # 胡莎莎
+def set_influence_degree(seed, m, edgeNum):  # 胡莎莎
     """
     基于最大度算法计算一个节点集合激活的节点
     :param seed:种子节点集合
@@ -324,7 +323,7 @@ def set_influence_degree(seed, m,edgeNum):  # 胡莎莎
     :return active_records:被激活的节点集合
     """
     import numpy as np
-    edge_records=[-1 for i in seed]
+    edge_records = [-1 for i in seed]
     # 网络的邻接矩阵
     adjacencyMatrix = np.zeros([number_of_nodes, number_of_nodes], dtype=int)
     for i in range(len(networkTemp)):
@@ -337,18 +336,19 @@ def set_influence_degree(seed, m,edgeNum):  # 胡莎莎
         if node == "":
             break
         for j in range(number_of_nodes):
-            if adjacencyMatrix[node][j] == 1 :
+            if adjacencyMatrix[node][j] == 1:
                 active_records.append(j)
                 edge_records.append(edgeNum[node][j])
-    return active_records,edge_records
+    return active_records, edge_records
 
 
 app = Flask(__name__)
 app.secret_key = 'lisenzzz'
-path='static/data/synfix/z_3/synfix_3.t01.edges'
-path1='static/data/Wiki.txt'
+path = 'static/data/synfix/z_3/synfix_3.t01.edges'
+path1 = 'static/data/Wiki.txt'
 networkTemp, number_of_nodes, graph_data = init_network('static/data/Wiki.txt')
 network_synfix, num_nodes_synfix, graph_data_synfix = init_network('static/data/synfix_3.t01.edges')
+
 
 @app.route('/')
 def hello_world():
@@ -364,13 +364,14 @@ def basic_ic_1():
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
     active_nums = []
-    edge_records=[] #记录激活边在networkTemp中的序号
+    edge_records = []  # 记录激活边在networkTemp中的序号
     graph_data1 = json.loads(graph_data)  # 将json数据转化为字典的形式
     for node in range(number_of_nodes):
         active_records.append([])
         active_nums.append([])
         edge_records.append([])
-        active_records[node],edge_records[node] = set_influence([node], 1, networkWeight, number_of_nodes, edgeNum)  # 把这个节点的模拟结果存起来
+        active_records[node], edge_records[node] = set_influence([node], 1, networkWeight, number_of_nodes,
+                                                                 edgeNum)  # 把这个节点的模拟结果存起来
         influence = len(active_records[node])
         graph_data1['nodes'][node]['value'] = influence  # 使图中各个节点右下角显示节点的影响力大小
         if influence > max_node_influence:
@@ -380,7 +381,7 @@ def basic_ic_1():
     graph_data1 = json.dumps(graph_data1)  # 将数据转化为json格式
     # 把需要的数据给对应的页面
     return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
-                           max_node_influence=max_node_influence,edge_records=edge_records,
+                           max_node_influence=max_node_influence, edge_records=edge_records,
                            max_influence_node=max_influence_node, method_type=1)
 
 
@@ -395,7 +396,7 @@ def basic_ic_10():  # 胡莎莎
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
     active_nums = []  # 每个节点每次模拟激活的节点数
     graph_data1 = json.loads(graph_data)
-    edge_records=[]
+    edge_records = []
     for node in range(number_of_nodes):
         active_records.append([])
         active_nums.append([])
@@ -405,8 +406,8 @@ def basic_ic_10():  # 胡莎莎
             active_records[node].append([])
             active_nums[node].append([])
             edge_records[node].append([])
-            active_records[node][simulation_count],edge_records[node][simulation_count] = \
-                set_influence([node], 1, networkWeight, number_of_nodes,edgeNum)  # 把这个节点的模拟结果存起来
+            active_records[node][simulation_count], edge_records[node][simulation_count] = \
+                set_influence([node], 1, networkWeight, number_of_nodes, edgeNum)  # 把这个节点的模拟结果存起来
             influence += len(active_records[node][simulation_count])
         graph_data1['nodes'][node]['value'] = influence / 10  # 模拟十次的平均影响力
         if influence > max_node_influence:
@@ -417,7 +418,8 @@ def basic_ic_10():  # 胡莎莎
     max_node_influence /= 20  # 求平均值
     graph_data1 = json.dumps(graph_data1)
     return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
-                           edge_records=edge_records,max_node_influence= max_node_influence, max_influence_node=max_influence_node, method_type=2)
+                           edge_records=edge_records, max_node_influence=max_node_influence,
+                           max_influence_node=max_influence_node, method_type=2)
 
 
 # 选择单个影响力最大的种子基于lt模型（每个节点模拟十次）
@@ -466,7 +468,7 @@ def basic_lt_1():
         active_nodes = node_set  # 存放被激活的节点，初始为node_set
         start = 0
         end = len(active_nodes)
-        edge_location=[-1 for i in node_set] # 记录被激活边的位置
+        edge_location = [-1 for i in node_set]  # 记录被激活边的位置
         while start != end:
             index = start
             while index < end:
@@ -480,13 +482,13 @@ def basic_lt_1():
                 index += 1
             start = end
             end = len(active_nodes)
-        return active_nodes,edge_location
+        return active_nodes, edge_location
 
     # 基于LT模型，找影响力最大的节点
     active_records = []  # 用来存放每个节点的模拟结果也就是最后激活的节点们
     max_node_influence = 0  # 用来存放比较过程中当前最大的影响力
     method = 1  # 选择使用哪种权重进行
-    edge_records=[]
+    edge_records = []
     graph_data1 = json.loads(graph_data)
     for node in range(number_of_nodes):  # 遍历所有的节点，判断影响力
         active_records.append([])
@@ -497,7 +499,7 @@ def basic_lt_1():
             theta = []  # 保存每个节点的阈值
             for iteration in range(number_of_nodes):  # 为每个节点随机设置阈值
                 theta.append(random.random())
-            l1,l2 = set_influence_LT([node])
+            l1, l2 = set_influence_LT([node])
             active_records[node].append(l1)  # 保存被激活的节点，第一个参数为列表
             edge_records[node].append(l2)
             count_influence += len(l1)
@@ -511,7 +513,7 @@ def basic_lt_1():
     graph_data1 = json.dumps(graph_data1)
     # 把你需要的数据给对应的页面
     return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
-                           edge_records=edge_records,max_node_influence=max_node_influence,
+                           edge_records=edge_records, max_node_influence=max_node_influence,
                            max_influence_node=max_influence_node, method_type=2)
 
 
@@ -578,7 +580,7 @@ def degree():
         adjacencyMatrix[int(networkTemp[i][0] - 1)][int(networkTemp[i][1] - 1)] = 1
         ##adjacencyMatrix[int(networkTemp[i][1] - 1)][int(networkTemp[i][0] - 1)] = 1
     active_records = []  # 用来存放每个节点的模拟结果
-    edge_records=[] # 存放激活边的位置
+    edge_records = []  # 存放激活边的位置
     for i in range(number_of_nodes):
         active_records.append([])
         edge_records.append([-1])
@@ -605,7 +607,7 @@ def degree():
     max_node_influence = max(nodeDegree)
     graph_data1 = json.dumps(graph_data1)
     return render_template('common_template.html', graph_data=graph_data1, active_records=active_records,
-                           edge_records=edge_records,max_node_influence=max_node_influence,
+                           edge_records=edge_records, max_node_influence=max_node_influence,
                            max_influence_node=max_influence_node, method_type=1)
 
 
@@ -658,14 +660,14 @@ def input():
         if err != "false":
             active_records = json.dumps([])
             return render_template('input.html', graph_data=graph_data, active_records=active_records, err=err)
-        active_node,edge_records = set_influence(data, 1, networkWeight, number_of_nodes, edgeNum)  # 保存激活的节点
+        active_node, edge_records = set_influence(data, 1, networkWeight, number_of_nodes, edgeNum)  # 保存激活的节点
         active_records = json.dumps(active_node)
         return render_template('input.html', graph_data=graph_data, active_records=active_records,
                                edge_records=edge_records, err=err)
 
 
 # 计算在选定算法下单个集合的影响力
-def calculateSingleSet(method, temp,edgeNum):
+def calculateSingleSet(method, temp, edgeNum):
     """
     计算在选定算法下单个集合的影响力
     :param method:选择的算法
@@ -700,25 +702,25 @@ def calculateSingleSet(method, temp,edgeNum):
             else:
                 err = "节点序号应为0-104的整数"
     if err != "false":
-        edge_records=[]
+        edge_records = []
         active_records = json.dumps([])
-        return active_records, err,edge_records
+        return active_records, err, edge_records
     if method == 1:  # IC模型模拟一次
-        active_node,edge_records = set_influence(data, 1, networkWeight, number_of_nodes, edgeNum)  # 保存激活的节点
+        active_node, edge_records = set_influence(data, 1, networkWeight, number_of_nodes, edgeNum)  # 保存激活的节点
     elif method == 2:  # IC模型模拟十次
-        active_node,edge_records = set_influence_IC_10(data, 1, networkWeight, edgeNum)  # 保存激活的节点
+        active_node, edge_records = set_influence_IC_10(data, 1, networkWeight, edgeNum)  # 保存激活的节点
     elif method == 3:  # LT模型模拟十次
-        active_node,edge_records = set_influence_LT_10(data, 1)  # 保存激活的节点
+        active_node, edge_records = set_influence_LT_10(data, 1)  # 保存激活的节点
         # active_num = 0
     elif method == 4:  # pageRank算法
-        edge_records=[]
+        edge_records = []
         active_node = set_influence_pageRank(data, 1)  # 保存激活的节点
         # active_num = 0
     elif method == 5:  # 最大度算法
-        active_node,edge_records= set_influence_degree(data, 1,edgeNum)  # 保存激活的节点
+        active_node, edge_records = set_influence_degree(data, 1, edgeNum)  # 保存激活的节点
         # active_num = 0
     active_records = json.dumps(active_node)
-    return active_records, err,edge_records
+    return active_records, err, edge_records
 
 
 # 集合影响力对比
@@ -736,18 +738,19 @@ def collectiveInfluenceComparison():
         active_records2 = json.dumps([])
         seed1 = ""
         seed2 = ""
-        edge_records1=json.dumps([])
+        edge_records1 = json.dumps([])
         edge_records2 = json.dumps([])
         method1 = ""
         method2 = ""
         return render_template('collectiveInfluenceComparison.html', graph_data=graph_data,
                                active_records1=active_records1, active_records2=active_records2, err1=err1, err2=err2,
-                            edge_records1=edge_records1,edge_records2=edge_records2,seed1=seed1, seed2=seed2, method1=method1,
+                               edge_records1=edge_records1, edge_records2=edge_records2, seed1=seed1, seed2=seed2,
+                               method1=method1,
                                method2=method2)
     else:
         temp1 = request.form.get('value1')
         method1 = request.form.get('method1')
-        active_records1, err1,edge_records1 = calculateSingleSet(method1, temp1,edgeNum)
+        active_records1, err1, edge_records1 = calculateSingleSet(method1, temp1, edgeNum)
         seed1 = []
         s = ""
         for c in temp1:
@@ -764,7 +767,7 @@ def collectiveInfluenceComparison():
 
         temp2 = request.form.get('value2')
         method2 = request.form.get('method2')
-        active_records2, err2, edge_records2 = calculateSingleSet(method2, temp2,edgeNum)
+        active_records2, err2, edge_records2 = calculateSingleSet(method2, temp2, edgeNum)
 
         seed2 = []
         s = ""
@@ -794,38 +797,13 @@ def ECDR():
     import pandas as pd
     import numpy as np
 
-    def network():
-        path = r"./static/data/Wiki.txt"
-        data = pd.read_table(path, header=None)
-        return data
-
-    # 计算网络中包含的节点数
-    data = network()
-    nodes = []  # 所有节点集合
-    for i in range(0, 2):
-        for j in range(len(data)):
-            if data[i][j] not in nodes:
-                nodes.append(data[i][j])
-    node_num = len(nodes)  # 网络中节点的数量
-
+    node_num = num_nodes_synfix  # 网络中节点的数量
+    edgeNum = [[0 for i in range(node_num)] for j in range(node_num)]
+    for i in range(len(network_synfix)):
+        edgeNum[network_synfix[i][0] - 1][network_synfix[i][1] - 1] = i
     # 返回所有的边，以列表的形式[[],[]...]
-    def edge():
-        data = network()
-        edgeNum = []
-        for i in range(node_num):
-            edgeNum.append([0 for j in range(node_num)])
-        edges = []  # 所有连接路径集合
-        count = 0
-        for i in range(len(data)):
-            edgeNum[data[0][i] - 1][data[1][i] - 1] = count
-            edgeNum[data[1][i] - 1][data[0][i] - 1] = count
-            count += 1
-            t = [data[0][i], data[1][i]]
-            edges.append(t)
-        edges_num = len(edges)  # 连接路径的数量
-        return edges, edgeNum
+    edges = network_synfix
 
-    edges, edgeNum = edge()
     A = np.zeros([node_num, node_num], dtype=int)  # 网络G的邻接矩阵A
     for i in range(len(edges)):
         A[int(edges[i][0]) - 1][int(edges[i][1]) - 1] = 1  # 数据中的节点是从1开始的，而矩阵是从0开始的
@@ -918,8 +896,8 @@ def ECDR():
         return core_node
 
     def CommunityDivision():
-        communityEdge = [] # 保存核心节点与局部亲密邻居的边
-        codenode = CoreNode() # 获得所有的核心节点
+        communityEdge = []  # 保存核心节点与局部亲密邻居的边
+        codenode = CoreNode()  # 获得所有的核心节点
         # 计算所有核心节点的局部亲密邻居
         LocalClosedNeighbors = {}
         for node in codenode:
@@ -931,7 +909,7 @@ def ECDR():
         cNum = -1
         unvisited = [0 for i in range(node_num)]
         for node in codenode:
-            if unvisited[node] == 0: # 核心节点未被访问，说明存在新社区
+            if unvisited[node] == 0:  # 核心节点未被访问，说明存在新社区
                 community.append([])
                 communityEdge.append([])
                 cNum += 1
@@ -945,7 +923,7 @@ def ECDR():
             while index < len(coreList):
                 corenode = coreList[index]
                 closedNei = LocalClosedNeighbors[corenode]
-                for n in closedNei: # 遍历所有的局部亲密邻居，将核心节点放入coreList中，将不在社区中的节点加入相应社区
+                for n in closedNei:  # 遍历所有的局部亲密邻居，将核心节点放入coreList中，将不在社区中的节点加入相应社区
                     if n in codenode:
                         if n not in coreList:
                             coreList.append(n)
@@ -957,11 +935,279 @@ def ECDR():
                 index += 1
         return community, communityEdge
 
-    C, communityEdge = CommunityDivision()
-    graph_data1 = json.loads(graph_data)
+    c, CommunityEdge = CommunityDivision()
+    C = []
+    communityEdge = []
+    for cNum in range(len(c)):
+        if len(c[cNum]) >= 3:
+            C.append(c[cNum])
+            communityEdge.append(CommunityEdge[cNum])
+    graph_data1 = json.loads(graph_data_synfix)
     graph_data1 = json.dumps(graph_data1)
     return render_template('EDCR.html', graph_data=graph_data1, community=C,
                            communityEdge=communityEdge, edgeNum=edgeNum)
+
+
+@app.route('/abc')
+def ECDR_Evolution():
+    from scipy.linalg import qr, svd, pinv
+    import pandas as pd
+    import numpy as np
+    import random
+    import copy
+    # 电阻矩阵
+    def ResistorMatrix():
+        L = D - A  # 图状网络G的拉普拉斯矩阵L
+        L1 = pinv(L)  # L的摩尔-彭若斯逆
+        Q = np.zeros([node_num, node_num])  # 电阻矩阵Q
+        for i in range(len(Q)):
+            for j in range(len(Q[0])):
+                Q[i][j] = L1[i][i] + L1[j][j] - 2 * L1[i][j]
+        return Q
+
+    # 两个节点有共同连接节点的矩阵
+    def CommonNode():
+        CommonNode = np.zeros([node_num, node_num], dtype=int)
+        for i in range(len(CommonNode) - 1):
+            for j in range(i + 1, len(CommonNode[0])):
+                count = 0
+                for t in range(i + 1, len(CommonNode[0])):
+                    if A[i][t] == A[j][t] == 1:
+                        count = count + 1
+                CommonNode[i][j] = count
+                CommonNode[j][i] = count
+        return CommonNode
+
+    # 邻居节点间的距离
+    def NodeDistance():
+        ComNode = CommonNode()  # 公共节点矩阵
+        Q = ResistorMatrix()  # 电阻矩阵
+        Dis = np.zeros([node_num, node_num])  # 邻居节点的距离
+        for i in range(len(Dis)):
+            for j in range(len(Dis[0])):
+                dd = min((1 - ComNode[i][j] / D[i][i]), (1 - ComNode[i][j] / D[j][j]))
+                Dis[i][j] = Q[i][j] * dd
+        return Dis
+
+    # 计算局部亲密邻居阈值矩阵
+    def Threshold():
+        Dis = NodeDistance()  # 邻居节点间的距离
+        thres = np.zeros([node_num, node_num])  # 各个节点的阈值
+        for i in range(len(thres)):
+            s = 1
+            for j in range(len(thres[0])):
+                if A[i][j] == 1:
+                    s = s * Dis[i][j]
+            thres[i][i] = s ** (1 / D[i][i])
+        return thres
+
+    # 节点在t时刻的局部紧密邻居
+    def LocalCloseNeighbors():
+        thres = Threshold()  # 局部亲密邻居阈值
+        AA = copy.deepcopy(A)  # 邻接矩阵
+        Dis = NodeDistance()  # 邻居节点间的距离
+        for i in range(len(AA)):
+            for j in range(len(AA[0])):
+                if AA[i][j] == 1 and (Dis[i][j] <= thres[i][i] or Dis[i][j] <= thres[j][j]):
+                    AA[i][j] = AA[j][i] = 2
+        return AA  # 返回一个矩阵，如果AAij=2，则说明i,j这两个节点是紧密邻居
+
+    # 每个节点局部最小聚类阈值
+    def LocalMinimumClusteringThreshold(a):
+        LMCT = []
+        for i in range(len(D1)):
+            LMCT.append(D1[i] * a)
+        return LMCT
+
+    def CoreNode():
+        LMCT = LocalMinimumClusteringThreshold(0.7)  # 每个节点局部最小聚类阈值
+        LCN = []  # 存放每个节点的局部邻居数量
+        # LCN_Matrix=LocalCloseNeighbors()#节点在t时刻的局部紧密邻居矩阵
+        for i in range(len(LCN_Matrix)):
+            count = 0
+            for j in range(len(LCN_Matrix[0])):
+                if LCN_Matrix[i][j] == 2:
+                    count = count + 1
+            LCN.append(count)
+        core_node = []
+        for i in range(len(LCN)):
+            if LCN[i] >= LMCT[i]:
+                core_node.append(i)
+        return core_node
+
+    def CommunityDivision():
+        communityEdge = []  # 保存核心节点与局部亲密邻居的边
+        codenode = CoreNode()  # 获得所有的核心节点
+        # 计算所有核心节点的局部亲密邻居
+        LocalClosedNeighbors = {}
+        for node in codenode:
+            LocalClosedNeighbors[node] = []
+            for i in range(len(LCN_Matrix)):
+                if LCN_Matrix[node][i] == 2:
+                    LocalClosedNeighbors[node].append(i)
+        community = []
+        cNum = -1
+        unvisited = [0 for i in range(node_num)]
+        for node in codenode:
+            if unvisited[node] == 0:  # 核心节点未被访问，说明存在新社区
+                community.append([])
+                communityEdge.append([])
+                cNum += 1
+            else:
+                continue
+            coreList = [node]
+            community[cNum].append(1 * node + 1)
+            communityEdge[cNum].append([node, node])
+            unvisited[node] = 1
+            index = 0
+            while index < len(coreList):
+                corenode = coreList[index]
+                closedNei = LocalClosedNeighbors[corenode]
+                for n in closedNei:  # 遍历所有的局部亲密邻居，将核心节点放入coreList中，将不在社区中的节点加入相应社区
+                    if n in codenode:
+                        if n not in coreList:
+                            coreList.append(n)
+                        n *= 1
+                    if unvisited[abs(n)] == 0:
+                        community[cNum].append(n + 1)
+                        communityEdge[cNum].append([corenode, abs(n)])
+                        unvisited[abs(n)] = 1
+                index += 1
+        return community, communityEdge
+
+    def nodeContribute(community, Q):
+        """
+        :param community: 社区
+        :param Q: 电阻矩阵
+        :return: 每个节点的节点贡献度
+        """
+        contribute = {}
+        for c in community:
+            sum = 0
+            temp = {}
+            for node1 in c:
+                nodeSum = 0
+                for node2 in c:
+                    nodeSum += Q[node1 - 1][node2 - 1]
+                sum += nodeSum
+                temp[node1] = nodeSum
+            for key, value in temp.items():
+                contribute[key] = 1 - temp[key] / sum
+        """
+        num = -1
+        for c in community:
+            contribute.append({})
+            num += 1
+            sum = 0
+            for node1 in c:
+                nodeSum = 0
+                for node2 in c:
+                    nodeSum += Q[node1 - 1][node2 - 1]
+                sum += nodeSum
+                contribute[num][node1] = nodeSum
+            totalContribute.append(sum)
+        for j in range(len(contribute)):
+            for key, value in contribute[j].items():
+                contribute[j][key] = 1 - contribute[j][key] / totalContribute[j]
+        """
+        return contribute
+
+    def dynamicContribute(CT):
+        """
+        :param CT: 不同时间片的节点贡献度
+        :return: 不同时间片的节点动态贡献度
+        """
+        IM = [CT[0]]
+        for i in range(1, len(CT)):
+            IM.append({})
+            for key, value in CT[i].items():
+                if (key not in CT[i - 1].keys()) or (IM[i - 1][key] == 0):
+                    IM[i][key] = CT[i][key] * 0.5
+                elif IM[i - 1][key] != 0:
+                    IM[i][key] = CT[i][key] - CT[i][key] * (CT[i][key] - IM[i - 1][key])
+        return IM
+
+    def communitySimilar(IM, C, delta=0.5):
+        """
+        :param delta: 阈值，大于该阈值则社区匹配成功
+        :param IM: 每个时间片的节点的动态贡献度
+        :param C: 每个时间片社区
+        :return: 相似的社区，用字典表示社区关系
+        """
+        similar = []
+        for stamp in range(len(C) - 1):  # 最后一个社区不参与运算
+            similar.append({})
+            for current in range(len(C[stamp])):
+                for n in range(len(C[stamp + 1])):
+                    intersectionNode = list(set(C[stamp][current]) & set(C[stamp + 1][n]))
+                    sumCurrentCommunity = 0  # 当前时刻社区动态贡献度总和
+                    sumNextCommunity = 0  # 下一时刻时刻社区动态贡献度总和
+                    sumIntersection1 = 0  # t时刻社区交集的动态贡献度总和
+                    sumIntersection2 = 0  # t + 1时刻社区交集的动态贡献度总和
+                    for node in C[stamp][current]:
+                        sumCurrentCommunity += IM[stamp][node]
+                    for node in C[stamp + 1][n]:
+                        sumNextCommunity += IM[stamp + 1][node]
+                    for node in intersectionNode:
+                        sumIntersection1 += IM[stamp][node]
+                    for node in intersectionNode:
+                        sumIntersection2 += IM[stamp + 1][node]
+                    sim = (sumIntersection1 + sumIntersection2) / (sumCurrentCommunity + sumNextCommunity)
+                    if sim > delta:
+                        if current not in similar[stamp].keys():
+                            similar[stamp][current] = [n]
+                        elif current in similar[stamp].keys():
+                            similar[stamp][current].append(n)
+        return similar
+
+    totalQ = []
+    totalCommunity = []
+    graph_data = []
+    path = [r'C:/Users/Administrator/OneDrive/visual/visualization/static/data/synfix/z_3/synfix_3.t01.edges',
+            r'C:/Users/Administrator/OneDrive/visual/visualization/static/data/synfix/z_3/synfix_3.t02.edges',
+            ]
+    for j in range(len(path)):
+        network_synfix, num_nodes_synfix, g = init_network(path[j])
+        graph_data.append(g)
+        node_num = num_nodes_synfix  # 网络中节点的数量
+        # 返回所有的边，以列表的形式[[],[]...]
+        edges = network_synfix
+        A = np.zeros([node_num, node_num], dtype=int)  # 网络G的邻接矩阵A
+        for i in range(len(edges)):
+            A[int(edges[i][0]) - 1][int(edges[i][1]) - 1] = 1  # 数据中的节点是从1开始的，而矩阵是从0开始的
+            A[int(edges[i][1]) - 1][int(edges[i][0] - 1)] = 1
+
+        # 度的节点矩阵,返回各个节点的度
+        D1 = []  # 存放各个节点的度D1
+        D = np.zeros([node_num, node_num], dtype=int)  # 度的节点矩阵D
+        for i in range(len(A)):
+            D1.append(sum(A[i]))
+        for i in range(len(D1)):
+            D[i][i] = D1[i]
+
+        totalQ.append(ResistorMatrix())
+        # 节点在t时刻的局部紧密邻居
+        thres = Threshold()  # 局部亲密邻居阈值
+        LCN_Matrix = copy.deepcopy(A)  # 邻接矩阵
+        Dis = NodeDistance()  # 邻居节点间的距离
+        for i in range(len(LCN_Matrix)):
+            for j in range(len(LCN_Matrix[0])):
+                if LCN_Matrix[i][j] == 1 and (Dis[i][j] <= thres[i][i] or Dis[i][j] <= thres[j][j]):
+                    LCN_Matrix[i][j] = LCN_Matrix[j][i] = 2
+
+        C, communityEdge = CommunityDivision()
+        tempC = []
+        for i in C:
+            if len(i) >= 3:
+                tempC.append(i)
+        totalCommunity.append(tempC)
+    CT = []  # 不同时间片的节点贡献度
+    for cNum in range(len(totalCommunity)):
+        CT.append(nodeContribute(totalCommunity[cNum], totalQ[cNum]))  # 计算每个时间片中节点的贡献度
+    IM = dynamicContribute(CT)  # 不同时间片的节点动态贡献度
+    S = communitySimilar(IM, totalCommunity)
+    return render_template('ECDR_Evolution.html', graph_data=graph_data, timeCommunity=totalCommunity,
+                           S=S)
 
 
 @app.route('/StaticMOACD')
@@ -1103,10 +1349,10 @@ def StaticMOACD():
                     # print "aj支配ai"
                     non.remove(non[i])
                     break
-        rep_ns = []         # 帕累托最优解的节点邻接表示集合
+        rep_ns = []  # 帕累托最优解的节点邻接表示集合
         rep_partition = []  # 帕累托最优解的分区方案集合
         rep_num = len(non)  # 帕累托最优解的个数
-        if len(pop_ns) == len(pop_value):   #只针对初始化方案
+        if len(pop_ns) == len(pop_value):  # 只针对初始化方案
             for i in range(rep_num):
                 j = non[i][0]
                 rep_ns.append(pop_ns[j])
@@ -1149,70 +1395,70 @@ def StaticMOACD():
     def init_community(G, B, N=100):
         node_num = G.number_of_nodes()
         m2 = 2 * G.number_of_edges()
-        pop_ns = []         #社区的节点邻接表示集合，键值对
-        pop_partition = []  #社区的分区方案集合
-        pop_value = []      #所有方案的目标结果集合
+        pop_ns = []  # 社区的节点邻接表示集合，键值对
+        pop_partition = []  # 社区的分区方案集合
+        pop_value = []  # 所有方案的目标结果集合
         # 计算节点之间的选择概率
         select_pro = select_probability(G)
         # 生成N中划分方案
         for i in range(N):
-            G2 = nx.Graph() #邻接表示解码后的图
-            indi = []       #每个节点的基于轨迹的邻接表示
+            G2 = nx.Graph()  # 邻接表示解码后的图
+            indi = []  # 每个节点的基于轨迹的邻接表示
             # 生成划分方案
             for m in range(node_num):
-                nei_pro = select_pro[m][1]  #节点m+1的所有邻居节点的选择概率
+                nei_pro = select_pro[m][1]  # 节点m+1的所有邻居节点的选择概率
                 # 按照概率随机选择一个节点
-                ran = random.random()   #生成一个0-1的随机数
+                ran = random.random()  # 生成一个0-1的随机数
                 rate_sum = 0
-                select_node = 1         #被节点m+1选中的邻居节点
+                select_node = 1  # 被节点m+1选中的邻居节点
                 for neighbor, rate in nei_pro.items():
                     rate_sum += rate
                     if ran < rate_sum:
                         select_node = neighbor
                         break
-                indi.append([m+1, select_node])
-                G2.add_edge(m+1, neighbor)
+                indi.append([m + 1, select_node])
+                G2.add_edge(m + 1, neighbor)
             pop_ns.append(indi)
-            components = [list(c) for c in list(nx.connected_components(G2))]   #G2的分区
-            Q = cal_Q(components, node_num, m2, B)  #计算该划分方案的模块度
-            GS = silhouette(G, components)          #计算GS值
+            components = [list(c) for c in list(nx.connected_components(G2))]  # G2的分区
+            Q = cal_Q(components, node_num, m2, B)  # 计算该划分方案的模块度
+            GS = silhouette(G, components)  # 计算GS值
             pop_partition.append(components)
             pop_value.append([i, Q, GS])
         return pop_ns, pop_partition, pop_value
 
-    G = nx.Graph()      #图数据
+    G = nx.Graph()  # 图数据
     for edge in network_synfix:
         G.add_edge(edge[0], edge[1])
     node_num = G.number_of_nodes()
     edge_num = G.number_of_edges()
-    Degree, B = deg_and_B(G)    #度矩阵和B矩阵，B矩阵用于模块度计算
+    Degree, B = deg_and_B(G)  # 度矩阵和B矩阵，B矩阵用于模块度计算
     # 初始社区划分方案
     pop_ns, pop_partition, pop_value = init_community(G, B)
     # 求解帕累托最优解
     rep_ns, rep_partition, rep_value = pareto(pop_ns, pop_partition, pop_value)
-    rep_par = json.dumps(rep_partition)     #传给前端的帕累托最优划分方案
+    rep_par = json.dumps(rep_partition)  # 传给前端的帕累托最优划分方案
 
     # 迭代更新解决方案
-    genmax = 20             # 最大迭代次数
-    gen = 0                 # 当前迭代次数
-    best_gen = []           # 迭代过程中最好的值
-    gen_equal = 0           # 多目标值相等的次数
-    updated_par = []        # 记录每次迭代中被选中更新的分区方案
-    node_update_rec = []    # 每次迭代对应方案的每个节点的更新记录
+    genmax = 20  # 最大迭代次数
+    gen = 0  # 当前迭代次数
+    best_gen = []  # 迭代过程中最好的值
+    gen_equal = 0  # 多目标值相等的次数
+    updated_par = []  # 记录每次迭代中被选中更新的分区方案
+    node_update_rec = []  # 每次迭代对应方案的每个节点的更新记录
     while gen < genmax and gen_equal < 10:
         npop_ns = copy.deepcopy(pop_ns)  # 深拷贝
-        npop_good_value = []      # 更新后较好的多目标值
+        npop_good_value = []  # 更新后较好的多目标值
         npop_good_partition = []  # 更新后较好的划分方案
-        nrep_value = []           # 新的帕累托最优多目标值
-        nrep_ns = []              # 新的帕累托节点邻接表示
-        nrep_partition = []       # 新的帕累托社区划分方案
-        method = 1                # 更新策略
-        update_num = 10           # 每次迭代的更新次数
-        record_gen = []           # 第gen次迭代的所有节点更新记录
-        up_par_gen = []           # 第gen次迭代中被选中更新的划分方案
+        nrep_value = []  # 新的帕累托最优多目标值
+        nrep_ns = []  # 新的帕累托节点邻接表示
+        nrep_partition = []  # 新的帕累托社区划分方案
+        method = 1  # 更新策略
+        update_num = 10  # 每次迭代的更新次数
+        record_gen = []  # 第gen次迭代的所有节点更新记录
+        up_par_gen = []  # 第gen次迭代中被选中更新的划分方案
         for i in range(update_num):
             npop_ns[i] = random.sample(rep_ns, 1)[0]  # 随机从帕累托前沿中选择一个方案
-            t_ns = copy.deepcopy(npop_ns[i])             # 暂存当前选中的方案
+            t_ns = copy.deepcopy(npop_ns[i])  # 暂存当前选中的方案
             # 随机选择一种算法更新
             if random.random() < 0.2:
                 npop_ns[i] = mutation(G, npop_ns[i])  # 邻居多样策略
@@ -1239,7 +1485,7 @@ def StaticMOACD():
                         t_record[node - 1] = com_id
                     com_id += 1
                 for edge in npop_ns[i]:
-                    record[edge[0]-1] = t_record[edge[1]-1]
+                    record[edge[0] - 1] = t_record[edge[1] - 1]
                 record_gen.append([method, record])
 
             # 判断是否新值旧值支配情况
@@ -1247,7 +1493,7 @@ def StaticMOACD():
             for node_cp in npop_ns[i]:
                 G_new.add_edge(node_cp[0], node_cp[1])
             components = [list(c) for c in list(nx.connected_components(G_new))]
-            Q = cal_Q(components, node_num, 2*edge_num, B)
+            Q = cal_Q(components, node_num, 2 * edge_num, B)
             GS = silhouette(G, components)
             # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧址
             if (Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2]):
@@ -1260,7 +1506,6 @@ def StaticMOACD():
                 npop_good_partition.append(components)
             else:
                 npop_ns[i] = pop_ns[i]
-
 
         npop_gv_i = []
         for i in range(len(npop_good_value)):
@@ -1287,7 +1532,7 @@ def StaticMOACD():
         rep_value = nrep_value
         rep_partition = nrep_partition
 
-        #保存当前迭代的更新记录
+        # 保存当前迭代的更新记录
         updated_par.append(up_par_gen)
         node_update_rec.append(record_gen)
 
@@ -1296,11 +1541,10 @@ def StaticMOACD():
         if gen >= 1 and best_gen[gen][1:] == best_gen[gen - 1][1:]:
             gen_equal += 1
         gen += 1
-        
+
     best = sorted(rep_value, key=lambda x: x[1], reverse=True)[0]
     best_location = rep_value.index(best)
     best_partition = rep_partition[best_location]
-
     updated_par = json.dumps(updated_par)
     node_update_rec = json.dumps(node_update_rec)
     best_partition = json.dumps(best_partition)
@@ -1311,4 +1555,3 @@ def StaticMOACD():
 
 if __name__ == '__main__':
     app.run(debug=True)
-

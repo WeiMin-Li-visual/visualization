@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+  <meta charset="utf-8">
+</head>
+<body style="height: 100%; margin: 0">
+  <div id="container" style="height: 100%"></div>
+  <script type="text/javascript" src="/static/js/echarts.js"></script>
+  <script type="text/javascript" src="/static/js/function.js"></script>
+  <script type="text/javascript">
+    var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var option;
+    var graph = {{ graph_data | tojson }} 
+    
+    var timeCommunity = {{timeCommunity}}
+    var S = {{S}}
+    
+    var nodeIndex = 0; //记录当前访问的节点的下标
+    var communityNum = 0;
+    var subtext = "";
+    var stamp = 0 // 时间
+    intervalNo = setInterval(() => {
+        graph = init_graph(graph[stamp]); 
+        option = initOption(graph, timeCommunity[stamp].length);
+        myChart.setOption(option);
+        //corenode = JSON.parse(corenode);
+        //LocalClosedNeighbors = JSON.parse(LocalClosedNeighbors)
+        var text = "社区演化过程"; 
+        var subtext = "第" + stamp +"个时间片"
+        update_show(text,subtext,myChart);
+        for(var cNum = 0; cNum < timeCommunity[stamp].length; ++cNum){
+            for(var node in timeCommunity[stamp][cNum])
+                graph.nodes[node].category = cNum + 1;
+        }
+        ++stamp;
+    }, 1000);
+   
+    function update_show(text,subtext,myChart) {
+      myChart.setOption({
+        title:{
+          text:text,
+          subtext: subtext
+        },
+        series:[{
+          data:graph.nodes,
+          links:graph.links
+        }]
+      })
+    }
+
+    function initOption(graph, cNum){
+        var option;
+        var categories = [];
+        color = ['#2f4554', '#009688', 'green', 'red', 'blue', '#A35B21', 'FE1892', 'ABE512', 'FF4123']
+        categories[0] = {
+            name: '噪声节点',
+            itemStyle: {
+                color: '#2f4554',
+                opacity: 0.9, //不透明度
+            }
+        }
+        for(var i = 1; i <= cNum; ++i) {
+            categories[i] = {
+            name: '社区' + i,
+            itemStyle: {
+                color: color[i],
+                opacity: 1, //不透明度
+            },
+            label: {
+                fontSize: 20,
+            },
+        };
+        }
+        categories[1] = {
+            name: '社区1',
+            itemStyle: {
+                color: '#009688',
+                opacity: 1, //不透明度
+            },
+            label: {
+                fontSize: 20,
+            },
+        };
+
+        //设置要生成的图的相关属性
+        option = {
+            title: {
+                text: '',
+                subtext: '',
+                top: 'top',
+                left: 'left'
+            },
+            tooltip: {},
+            legend: [{
+                // selectedMode: 'single',
+                data: categories.map(function (a) {
+                    return a.name;
+                })
+            }],
+            animationDuration: 1500,
+            animationEasingUpdate: 'quinticInOut',
+            series: [
+                {
+                    name: 'Les Miserables',
+                    type: 'graph',
+                    layout: 'none',
+                    //下面三项分别设置节点数据，边数据，种类数据
+                    data: graph.nodes,
+                    links: graph.links,
+                    categories: categories,
+                    roam: true,
+                    animation: false,
+                    focusNodeAdjacency: true,
+                    itemStyle: {
+                        normal: {
+                            borderColor: '#fff',
+                            borderWidth: 1,
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)'
+                        }
+                    },
+                    label: {
+                        position: 'right',
+                        formatter: '{b}'
+                    },
+                    lineStyle: {
+                        color: 'rgba(0, 0, 0, 0.7)',
+                        curveness: 0.3
+                    },
+                    emphasis: {
+                        lineStyle: {
+                            width: 10
+                        }
+                    },
+                    force: {
+                        repulsion: 270
+                    }
+                }
+            ]
+        };
+        return option;
+    }
+</script>
+</body>
+</html>
