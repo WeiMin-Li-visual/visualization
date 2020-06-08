@@ -4,6 +4,8 @@ import json
 import random
 import copy
 from flask_socketio import SocketIO
+from threading import Lock
+thread_lock = Lock()
 
 
 # 初始化网络
@@ -30,21 +32,28 @@ def init_network(data_path):
         nodes.add(each_link[1])
     node_num = len(nodes)
 
-    # 记录每个节点的位置信息
     G = nx.Graph(network)
+
+    # 让节点名称和索引相对应
+    nodes_list = list(nx.nodes(G))
+    nodes_list.sort()
+    node_dict = dict()
+    for i in range(node_num):
+        node_dict[nodes_list[i]] = i
+
+    # 记录每个节点的位置信息
     pos = nx.drawing.spring_layout(G)
     node_coordinate = []
     for i in range(node_num):
         node_coordinate.append([])
     for i, j in pos.items():
-        # 需要说明的是网络图节点是从1开始的，如果从0开始的，下面不需要减1
-        node_coordinate[i - 1].append(float(j[0]))
-        node_coordinate[i - 1].append(float(j[1]))
+        node_coordinate[node_dict[i]].append(float(j[0]))
+        node_coordinate[node_dict[i]].append(float(j[1]))
 
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
     nodes_data_json = []
-    for node in range(node_num):
+    for node in nodes_list:
         nodes_data_json.append({
             'attributes': {'modularity_class': 0},
             'id': str(node),
@@ -54,8 +63,8 @@ def init_network(data_path):
             'name': str(node),
             'symbolSize': 35,
             'value': 111,
-            'x': node_coordinate[node][0],
-            'y': node_coordinate[node][1]
+            'x': node_coordinate[node_dict[node]][0],
+            'y': node_coordinate[node_dict[node]][1]
         })
     links_data_json = []
     cur_edges = []
@@ -562,7 +571,7 @@ def dyanmicMOACD_thread():
         pop_N = N  # 群体个数
         network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path_e)
         socketio.emit('server_response',
-                      {'data': [graph_data_synfix, 0]},
+                      {'data': [graph_data_synfix, 0],'count':0},
                       namespace='/dyanmicMOACD')
 
         G = nx.Graph()  # 图数据
@@ -824,6 +833,7 @@ def dyanmicMOACD_thread():
     T = 11  # 总时间步 一共T-1个时间步
 
     file_qian = "static/data/synfix/z_3/synfix_3.t"  # 文件名前缀
+    # file_qian = "static/data/Cell/real.t"  # 文件名前缀
     file_bian = ".edges"  # 后缀--边
 
     # 保存每一时间片的社区划分结果
@@ -840,7 +850,7 @@ def dyanmicMOACD_thread():
     G_pre_nn = G_pre.number_of_nodes()  # 前一个时间片图的节点个数
 
     socketio.emit('server_response',
-                  {'data': [graph_data, components_pre]},
+                  {'data': [graph_data, components_pre],'count':1},
                   namespace='/dyanmicMOACD')
 
     all_graph_data.append(graph_data)
@@ -848,7 +858,7 @@ def dyanmicMOACD_thread():
 
     # 之后的时间步
     for t in range(2, T):
-        i=t
+        count=t
         if t < 10:
             t = "0" + str(t)
 
@@ -889,25 +899,27 @@ def dyanmicMOACD_thread():
         components_pre = best_partition
         all_best_components.append(components_pre)
 
+
         socketio.emit('server_response',
-                      {'data': [graph_data_synfix, components_pre]},
+                      {'data': [graph_data_synfix, components_pre],'count':count},
                       namespace='/dyanmicMOACD')
 
     # 最后接收一次空数据，前端显示“演化结束”
     socketio.sleep(1) # 休眠1秒
     socketio.emit('server_response',
-                  {'data': [0, 0]},
+                  {'data': [0, 0],'count':0},
                   namespace='/dyanmicMOACD')
 
 
 async_mode = None
+thread = None
 app = Flask(__name__)
 app.secret_key = 'lisenzzz'
 socketio = SocketIO(app, async_mode=async_mode)
 path='static/data/synfix/z_3/synfix_3.t01.edges'
 path1='static/data/Wiki.txt'
 networkTemp, number_of_nodes, graph_data = init_network('static/data/Wiki.txt')
-network_synfix, num_nodes_synfix, graph_data_synfix = init_network('static/data/synfix_3.t01.edges')
+network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path)
 
 @app.route('/')
 def hello_world():
@@ -1762,15 +1774,16 @@ def StaticMOACD():
         npop_ns = copy.deepcopy(pop_ns)  # 深拷贝
         npop_good_value = []      # 更新后较好的多目标值
         npop_good_partition = []  # 更新后较好的划分方案
+        npop_good_ns = []         # 更新后较好的节点邻接表示
         nrep_value = []           # 新的帕累托最优多目标值
         nrep_ns = []              # 新的帕累托节点邻接表示
         nrep_partition = []       # 新的帕累托社区划分方案
         method = 1                # 更新策略
-        update_num = 10           # 每次迭代的更新次数
+        update_num = 10          # 每次迭代的更新次数
         record_gen = []           # 第gen次迭代的所有节点更新记录
         up_par_gen = []           # 第gen次迭代中被选中更新的划分方案
         for i in range(update_num):
-            npop_ns[i] = random.sample(rep_ns, 1)[0]  # 随机从帕累托前沿中选择一个方案
+            npop_ns[i] = copy.deepcopy(random.sample(rep_ns, 1)[0])  # 随机从帕累托前沿中选择一个方案
             t_ns = copy.deepcopy(npop_ns[i])             # 暂存当前选中的方案
             # 随机选择一种算法更新
             if random.random() < 0.2:
@@ -1808,43 +1821,42 @@ def StaticMOACD():
             components = [list(c) for c in list(nx.connected_components(G_new))]
             Q = cal_Q(components, node_num, 2*edge_num, B)
             GS = silhouette(G, components)
-            # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧址
-            if (Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2]):
+            # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧值
+            if (Q == 0.0) or ((Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2])):
                 no_dominate = False
             else:
                 no_dominate = True
             # 支配，新值直接输出，否则，改为旧值
             if no_dominate:
                 npop_good_value.append([i + (1 + gen) * 100, Q, GS])  # 新值加编号100处理
-                npop_good_partition.append(components)
+                npop_good_partition.append(copy.deepcopy(components))
+                npop_good_ns.append(copy.deepcopy(npop_ns[i]))
             else:
                 npop_ns[i] = pop_ns[i]
 
 
-        npop_gv_i = []
-        for i in range(len(npop_good_value)):
-            npop_gv_i.append(npop_good_value[i][0])
-
         # 帕累托最优解集合
         all_value = rep_value + npop_good_value
-        # nrep_value = pareto(all_value)
         ns, par, nrep_value = pareto(pop_ns, pop_partition, all_value)
         # rep_value 位置
         rep_gv_i = []
         for i in range(len(rep_value)):
             rep_gv_i.append(rep_value[i][0])
+        npop_gv_i = []
+        for i in range(len(npop_good_value)):
+            npop_gv_i.append(npop_good_value[i][0])
         for i in range(len(nrep_value)):
             j = nrep_value[i][0]
             if j < 100 * (gen + 1):
-                nrep_ns.append(rep_ns[rep_gv_i.index(j)])
-                nrep_partition.append(rep_partition[rep_gv_i.index(j)])
+                nrep_ns.append(copy.deepcopy(rep_ns[rep_gv_i.index(j)]))
+                nrep_partition.append(copy.deepcopy(rep_partition[rep_gv_i.index(j)]))
             else:
-                nrep_ns.append(npop_ns[j % 100])
-                nrep_partition.append(npop_good_partition[npop_gv_i.index(j)])
+                nrep_ns.append(copy.deepcopy(npop_good_ns[npop_gv_i.index(j)]))
+                nrep_partition.append(copy.deepcopy(npop_good_partition[npop_gv_i.index(j)]))
 
-        rep_ns = nrep_ns
-        rep_value = nrep_value
-        rep_partition = nrep_partition
+        rep_ns = copy.deepcopy(nrep_ns)
+        rep_value = copy.deepcopy(nrep_value)
+        rep_partition = copy.deepcopy(nrep_partition)
 
         #保存当前迭代的更新记录
         updated_par.append(up_par_gen)
@@ -1872,10 +1884,10 @@ def StaticMOACD():
 def dyanmicMOACD():
     return render_template('DyanmicMOACD.html', async_mode=socketio.async_mode)
 
+# 前后端通信
 @socketio.on('connect', namespace='/dyanmicMOACD')
 def test_connect():
     thread = socketio.start_background_task(target=dyanmicMOACD_thread)
-
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

@@ -2,6 +2,7 @@
 # !/usr/bin/env python
 import psutil
 import time
+import random
 from threading import Lock
 from flask import Flask, render_template
 from flask_socketio import SocketIO
@@ -16,23 +17,18 @@ thread_lock = Lock()
 
 # 后台线程 产生数据，即刻推送至前端
 def background_thread():
-    count = 0
-    while True:
+    count=0
+    while count<10:
+        count+=1
         socketio.sleep(1)
-        count += 1
-        t = time.strftime('%M:%S', time.localtime())
-        # 获取系统时间（只取分:秒）
-        cpus = psutil.cpu_percent(interval=None, percpu=True)
-        # 获取系统cpu使用率 non-blocking
+        t = random.randint(1, 100)
         socketio.emit('server_response',
-                      {'data': [t, cpus], 'count': count},
-                      namespace='/test')
-        # 注意：这里不需要客户端连接的上下文，默认 broadcast = True
+                      {'data': t}, namespace='/test')
 
 
 @app.route('/')
 def index():
-    return render_template('test.html', async_mode=socketio.async_mode)
+    return render_template('test.html')
 
 
 @socketio.on('connect', namespace='/test')
