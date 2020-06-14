@@ -3,6 +3,9 @@ from flask import Flask, render_template, request, flash
 import json
 import random
 import copy
+from flask_socketio import SocketIO
+from threading import Lock
+thread_lock = Lock()
 
 
 # 初始化网络
@@ -29,20 +32,42 @@ def init_network(data_path):
         nodes.add(each_link[1])
     node_num = len(nodes)
 
-    # 记录每个节点的位置信息
     G = nx.Graph(network)
+
+    # # 让节点名称和索引相对应
+    # nodes_list = list(nx.nodes(G))
+    # nodes_list.sort()
+    # node_dict = dict()
+    # for i in range(node_num):
+    #     node_dict[nodes_list[i]] = i
+
+    # 记录每个节点的位置信息
     pos = nx.drawing.spring_layout(G)
     node_coordinate = []
     for i in range(node_num):
         node_coordinate.append([])
     for i, j in pos.items():
-        # 需要说明的是网络图节点是从1开始的，如果从0开始的，下面不需要减1
-        node_coordinate[i - 1].append(float(j[0]))
-        node_coordinate[i - 1].append(float(j[1]))
+        # node_coordinate[node_dict[i]].append(float(j[0]))
+        # node_coordinate[node_dict[i]].append(float(j[1]))
+        node_coordinate[i-1].append(float(j[0]))
+        node_coordinate[i-1].append(float(j[1]))
 
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
     nodes_data_json = []
+    # for node in nodes_list:
+    #     nodes_data_json.append({
+    #         'attributes': {'modularity_class': 0},
+    #         'id': str(node),
+    #         'category': 0,
+    #         'itemStyle': '',
+    #         'label': {'normal': {'show': 'false'}},
+    #         'name': str(node),
+    #         'symbolSize': 35,
+    #         'value': 111,
+    #         'x': node_coordinate[node_dict[node]][0],
+    #         'y': node_coordinate[node_dict[node]][1]
+    #     })
     for node in range(node_num):
         nodes_data_json.append({
             'attributes': {'modularity_class': 0},
@@ -59,7 +84,8 @@ def init_network(data_path):
     links_data_json = []
     cur_edges = []
     for link in network:
-        if link not in cur_edges:
+        edge = [link[1], link[0]]
+        if edge not in cur_edges:
             link_id = len(links_data_json)
             links_data_json.append({
                 'id': str(link_id),
@@ -341,14 +367,574 @@ def set_influence_degree(seed, m, edgeNum):  # 胡莎莎
                 edge_records.append(edgeNum[node][j])
     return active_records, edge_records
 
+def dyanmicMOACD_thread():
+    """
+    基于社交网络属性的多目标优化动态社区划分
+    author:张财、邓志斌
+    date:2020年6月6日
+    """
 
+    import math
+    import networkx as nx
+    import numpy as np
+    from numpy import mat
+    from numpy import trace
+
+    # 求出度矩阵和B矩阵
+    def deg_and_B(G):
+        node_len = len(G.nodes)
+        m2 = 2 * G.number_of_edges()
+        # 构造邻接矩阵A
+        A = np.zeros((node_len, node_len), int)
+        for node in G.nodes:
+            for nh in G.neighbors(node):
+                A[node - 1][nh - 1] = 1
+        # 度矩阵
+        Degree = np.zeros(node_len, int)
+        for i in list(G.nodes):
+            k = sum(A[i - 1])
+            Degree[i - 1] = k
+        # 构造B矩阵
+        B = np.zeros((node_len, node_len))
+        for i in list(G.nodes):
+            ki = Degree[i - 1]
+            for j in list(G.nodes):
+                kj = Degree[j - 1]
+                B[i - 1][j - 1] = A[i - 1][j - 1] - ki * kj / m2
+        # print(B)
+        return Degree, B
+
+    def cal_Q(partition, node_len, m2, B):
+        s_cor = len(partition)
+        S_labels = np.zeros([node_len, s_cor], int)
+        for i in range(s_cor):
+            for j in partition[i]:
+                S_labels[j - 1][i] = 1
+        S_labels = mat(S_labels)
+        Q = 1 / m2 * (trace(S_labels.T * B * S_labels))
+        return Q
+
+    # 论文中3.3.2初始化：公式(3.7)
+    def select_probability(G):
+        node_set = list(G.nodes)  # 节点集合
+        len_node_set = len(node_set)
+        # 保存每个节点的邻居的个数
+        # 前提是网络节点连续排好，中间没有缺失
+        nodenh_set = [0] * len_node_set  # 每个节点的邻居集合
+        nodenh_lenset = [0] * len_node_set  # 每个节点的邻居集合的长度
+        for node in node_set:
+            nh = list(G.neighbors(node))
+            nodenh_lenset[node - 1] = len(nh)
+            nodenh_set[node - 1] = list(G.neighbors(node))
+        # i和j有边的共同邻居相似度
+        select_pro = []
+        for node in node_set:
+            # 字典{邻居节点:共同邻居数,邻居节点:共同邻居数,...}
+            sim_sum = 0  # 每个节点所有邻居相似度之和
+            sim_set = []
+            neis_set = nodenh_set[node - 1]
+            for nei in neis_set:
+                nei_neis_set = nodenh_set[nei - 1]
+                # 交集
+                d = [n for n in neis_set if n in nei_neis_set]
+                # 计算相似度
+                s = float(len(d) + 1) / math.sqrt(nodenh_lenset[node - 1] * nodenh_lenset[nei - 1])
+                sim_set.append(s)
+                sim_sum += s
+            nei_pro = {}
+            for i in range(nodenh_lenset[node - 1]):
+                pro = sim_set[i] / sim_sum
+                nei_pro.update({neis_set[i]: pro})
+            select_pro.append([node, nei_pro])
+        select_pro = sorted(select_pro, key=(lambda x: x[0]))
+        return select_pro
+
+    # 计算论文公式(3.10)
+    def silhouette(G, partition):
+        GS = 0.0
+        for index, community in enumerate(partition):
+            result = 0.0
+            community_len = len(community)
+            for i in range(community_len):
+                # 求ai---每个点与社区内其他点平均相似度
+                degree = sum([1 for j in range(community_len) if G.has_edge(community[i], community[j])])
+                ai = degree / community_len
+                # 求bi --节点i与其他社区节点最大平均相似度
+                other_sim = [sum([1 for j in range(len(other_community)) if
+                                  G.has_edge(community[i], other_community[j])]) / len(other_community)
+                             for index1, other_community in enumerate(partition) if index1 != index]
+                if other_sim:
+                    bi = max(other_sim)
+                else:
+                    bi = 0  # 有问题
+                if max(ai, bi) == 0:
+                    result += 0
+                else:
+                    result += (ai - bi) / max(ai, bi) / community_len
+            GS += result / len(partition)
+        return GS
+
+    # 帕累托最优解集合
+    def pareto(pop_value):
+        '''
+        # 非支配规则:a所有目标值不小于b,并且至少有一个目标值比b大，则a支配b
+        :param pop_value:
+        :return:
+        '''
+
+        non = []
+        # 将解集复制给非支配解集
+        for i in range(len(pop_value)):
+            non.append(pop_value[i][:])
+        for i in range(-len(non), -1):
+            for j in range(i + 1, 0):
+                # print non[i], non[j]
+                if non[i][1] == non[j][1] and non[i][2] == non[j][2]:
+                    # print i,"deng"
+                    non.remove(non[i])
+                    # print non
+                    break
+                elif ((non[i][1] >= non[j][1]) and (non[i][2] >= non[j][2])) and (
+                        (non[i][1] > non[j][1]) or (non[i][2] > non[j][2])):
+                    # a[i][0]支配a[j][0]
+                    # print "ai支配aj"
+                    non.remove(non[j])
+                    break
+                elif ((non[j][1] >= non[i][1]) and (non[j][2] >= non[i][2])) and (
+                        (non[j][1] > non[i][1]) or (non[j][2] > non[i][2])):
+                    # print "aj支配ai"
+                    non.remove(non[i])
+                    break
+        return non
+
+    # 基因漂流，就是论文算法1邻居从众策略
+    def turbulence(G, indi):
+        G3 = nx.Graph()  # 解码后（稀疏）的图
+        for node_cp in indi:
+            G3.add_edge(node_cp[0], node_cp[1])
+        components = [list(c) for c in list(nx.connected_components(G3))]
+        components_len = len(components)
+        for j in range(len(indi)):
+            node = indi[j][0]
+            nei = [n for n in G.neighbors(node)]
+            # 记录邻居的集群标签
+            nei_com = []  # 邻居集群的位置
+            for x in range(len(components)):
+                nei_com.append([n for n in nei if n in components[x]])
+            # 选出最多邻居的集群
+            max_nei_com = nei_com[int(np.argmax([len(nei_com[m]) for m in range(len(nei_com))]))]
+            # 从最多数量的邻居分区中随机选一个值
+            if indi[j][1] not in max_nei_com:
+                indi[j] = [node, random.sample(max_nei_com, 1)[0]]
+        return indi
+
+    # 基因变异，就是论文算法2邻居多样策略
+    def mutation(G, indi):
+        for j in range(len(indi)):
+            node = indi[j][0]
+            t = [n for n in G.neighbors(node)]
+            t.remove(indi[j][1])
+            if t:
+                indi[j] = [node, random.sample(t, 1)[0]]
+
+        return indi
+
+    # 初始社区划分方案，方案个数为100
+    def init_community(G, B, N=100):
+        node_num = G.number_of_nodes()
+        m2 = 2 * G.number_of_edges()
+        pop_ns = []  # 社区的节点邻接表示集合，键值对
+        pop_partition = []  # 社区的分区方案集合
+        pop_value = []  # 所有方案的目标结果集合
+        # 计算节点之间的选择概率
+        select_pro = select_probability(G)
+        # 生成N中划分方案
+        for i in range(N):
+            G2 = nx.Graph()  # 邻接表示解码后的图
+            indi = []  # 每个节点的基于轨迹的邻接表示
+            # 生成划分方案
+            for m in range(node_num):
+                nei_pro = select_pro[m][1]  # 节点m+1的所有邻居节点的选择概率
+                # 按照概率随机选择一个节点
+                ran = random.random()  # 生成一个0-1的随机数
+                rate_sum = 0
+                select_node = 1  # 被节点m+1选中的邻居节点
+                for neighbor, rate in nei_pro.items():
+                    rate_sum += rate
+                    if ran < rate_sum:
+                        select_node = neighbor
+                        break
+                indi.append([m + 1, select_node])
+                G2.add_edge(m + 1, neighbor)
+            pop_ns.append(indi)
+            components = [list(c) for c in list(nx.connected_components(G2))]  # G2的分区
+            Q = cal_Q(components, node_num, m2, B)  # 计算该划分方案的模块度
+            GS = silhouette(G, components)  # 计算GS值
+            pop_partition.append(components)
+            pop_value.append([i, Q, GS])
+        return pop_ns, pop_partition, pop_value
+
+    # 动态划分的时候需要调用
+    def staticMoacd(path_e, N=100):
+        '''
+        静态MOACD算法
+        :param path_e: 文件路径
+        :param N: 种群数量，默认100
+        :return:
+        '''
+
+        pop_N = N  # 群体个数
+        network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path_e)
+        socketio.emit('server_response',
+                      {'data': [graph_data_synfix, 0],'count':0},
+                      namespace='/dyanmicMOACD')
+
+        G = nx.Graph()  # 图数据
+        for edge in network_synfix:
+            G.add_edge(edge[0], edge[1])
+        node_num = G.number_of_nodes()
+        edge_num = G.number_of_edges()
+        m2 = edge_num * 2
+
+        Degree, B = deg_and_B(G)  # 度矩阵和B矩阵（B矩阵用于模块度计算）
+
+        # 初始社区划分方案
+        pop_ns, pop_partition, pop_value = init_community(G, B, pop_N)
+
+        # 求解帕累托最优解
+        rep_value= pareto(pop_value)
+
+        rep_ns = []  # 帕累托最优解的节点邻接表示集合
+        rep_partition = []  # 帕累托最优解的分区方案集合
+        for i in range(len(rep_value)):
+            j = rep_value[i][0]
+            rep_ns.append(pop_ns[j])
+            rep_partition.append(pop_partition[j])
+
+        # 迭代更新解决方案
+        genmax = 20  # 最大迭代次数
+        gen = 0  # 当前迭代次数
+        best_gen = []  # 迭代过程中最好的值
+        gen_equal = 0  # 多目标值相等的次数
+
+        while gen < genmax and gen_equal < 10:
+            npop_ns = copy.deepcopy(pop_ns)  # 深拷贝
+            npop_good_value = []  # 更新后较好的多目标值
+            npop_good_partition = []  # 更新后较好的划分方案
+            nrep_value = []  # 新的帕累托最优多目标值
+            nrep_ns = []  # 新的帕累托节点邻接表示
+            nrep_partition = []  # 新的帕累托社区划分方案
+            # update_num = 10  # 每次迭代的更新次数
+
+            for i in range(pop_N):
+                npop_ns[i] = random.sample(rep_ns, 1)[0]  # 随机从帕累托前沿中选择一个方案
+                t_ns = copy.deepcopy(npop_ns[i])  # 暂存当前选中的方案
+
+                # 随机选择一种算法更新
+                if random.random() < 0.2:
+                    npop_ns[i] = mutation(G, npop_ns[i])  # 邻居多样策略
+                else:
+                    npop_ns[i] = turbulence(G, npop_ns[i])  # 邻居从众策略
+
+                # 判断是否新值旧值支配情况
+                G_new = nx.Graph()
+                for node_cp in npop_ns[i]:
+                    G_new.add_edge(node_cp[0], node_cp[1])
+
+                components = [list(c) for c in list(nx.connected_components(G_new))]
+                Q = cal_Q(components, node_num, m2, B)
+                GS = silhouette(G, components)
+
+                # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧址
+                if (Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2]):
+                    no_dominate = False
+                else:
+                    no_dominate = True
+                # 支配，新值直接输出，否则，改为旧值
+                if no_dominate:
+                    npop_good_value.append([i + (1 + gen) * 100, Q, GS])  # 新值加编号100处理
+                    npop_good_partition.append(components)
+                else:
+                    npop_ns[i] = pop_ns[i]
+
+            npop_gv_i = []
+            for i in range(len(npop_good_value)):
+                npop_gv_i.append(npop_good_value[i][0])
+
+            # 帕累托最优解集合
+            all_value = rep_value + npop_good_value
+            # nrep_value = pareto(all_value)
+            nrep_value = pareto(all_value)
+
+            # rep_value 位置
+            rep_gv_i = []
+            for i in range(len(rep_value)):
+                rep_gv_i.append(rep_value[i][0])
+            for i in range(len(nrep_value)):
+                j = nrep_value[i][0]
+                if j < 100 * (gen + 1):
+                    nrep_ns.append(rep_ns[rep_gv_i.index(j)])
+                    nrep_partition.append(rep_partition[rep_gv_i.index(j)])
+                else:
+                    nrep_ns.append(npop_ns[j % 100])
+                    nrep_partition.append(npop_good_partition[npop_gv_i.index(j)])
+
+            rep_ns = nrep_ns
+            rep_value = nrep_value
+            rep_partition = nrep_partition
+
+            # 迭代终止条件
+            best_gen.append(sorted(rep_value, key=lambda x: x[1], reverse=True)[0])
+            if gen >= 1 and best_gen[gen][1:] == best_gen[gen - 1][1:]:
+                gen_equal += 1
+            gen += 1
+
+        best = sorted(rep_value, key=lambda x: x[1], reverse=True)[0]
+        best_location = rep_value.index(best)
+        best_partition = rep_partition[best_location]
+
+        return best_partition, G, graph_data_synfix
+
+    # 计算两图的节点交集数量
+    def cal_com_node(GA, GB):
+        node_set_a = GA.nodes()
+        node_set_b = GB.nodes()
+        com_num = 0
+        for i in node_set_a:
+            if i in node_set_b:
+                com_num += 1
+        return com_num
+
+    # 计算公式(3.11),DCEC值
+    def dcec(components_pre, components, G_pre_nn, G_nn, com_nn):
+        '''
+        :param components_pre:
+        :param components:
+        :param G_pre_nn:
+        :param G_nn:
+        :param com_nn:
+        :return: 返回公式(3.11),DCEC值
+        '''
+        A = components_pre
+        B = components
+        NA = G_pre_nn
+        NB = G_nn
+        NC = com_nn
+        Nall = G_pre_nn + G_nn - com_nn
+        C = []
+        fenzi = 0
+        fenmu1 = 0
+        fenmu2 = 0
+        nmi = 0
+        len_A = len(A)
+        len_B = len(B)
+
+        # 计算C矩阵/列表
+        C = [[sum([1 for node in A[i] if node in B[j]]) for j in range(len_B)] for i in range(len_A)]
+
+        # 求分子，分母
+        for i in range(len_A):
+            ci = sum([C[i][j] for j in range(len_B)])
+            if ci != 0:
+                fenmu1 += float(ci) / NA * math.log(float(ci) / NA)  #
+            else:
+                fenmu1 += 0
+            for j in range(len_B):
+                cj = sum([C[i][j] for i in range(len_A)])
+                if cj != 0:
+                    fenmu2 += float(cj) / NB * math.log(float(cj) / NB)  #
+                else:
+                    fenmu2 += 0
+
+                if C[i][j] != 0 and ci != 0 and cj != 0:
+                    fenzi += float(C[i][j]) / Nall * math.log(float(C[i][j] * NC) / (ci * cj))
+                else:
+                    fenzi += 0
+
+        nmi = -2.0 * fenzi / (fenmu1 + fenmu2)
+        return nmi
+
+    def iteration(G, pop_ns, pop_value, rep_ns, rep_value, rep_partition, components_pre, G_pre_nn, G_nn, com_nn, m2, B,
+                  pop_N):
+
+        N = pop_N  # 个体个数
+        genmax = 20  # 最大迭代次数
+        gen = 0
+        best_gen = []  # 迭代过程中，最好的值
+        gen_equal = 0  # 值相等次数
+
+        while gen < genmax and gen_equal < 10:  # 迭代次数，蝙蝠时间t
+            npop_ns = copy.deepcopy(pop_ns)  # 深拷贝，py3
+            npop_good_value = []  # 新的npop比较好的值的集合
+            npop_good_partition = []  # 新的比较好的值的分区集合
+            nrep_value = []  # 较优值集合
+            nrep_ns = []  # 节点集
+            nrep_partition = []  # 较优值分区集合
+
+            for i in range(N):  # 群体个数-
+                # 随机从rep里选取一个bat作为最佳值
+                best_x = random.sample(rep_ns, 1)[0]
+                npop_ns[i] = best_x
+
+                # 根据生成的概率进行变异or湍流
+                if random.random() < 0.2:
+                    npop_ns[i] = mutation(G, npop_ns[i])
+                else:
+                    npop_ns[i] = turbulence(G, npop_ns[i])
+
+                # 判断是否新值旧值支配情况
+                G_new = nx.Graph()
+                for node_cp in npop_ns[i]:
+                    G_new.add_edge(node_cp[0], node_cp[1])
+
+                components = [list(c) for c in list(nx.connected_components(G_new))]
+
+                Q = cal_Q(components, G_nn, m2, B)
+                a = dcec(components_pre, components, G_pre_nn, G_nn, com_nn)
+                nmi = round(a, 10)
+
+                # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧址
+                if (Q <= pop_value[i][1] and nmi <= pop_value[i][2]) and (Q < pop_value[i][1] or nmi < pop_value[i][2]):
+                    no_dominate = False
+                else:
+                    no_dominate = True
+
+                # 支配，新值直接输出，否则，改为旧值
+                if no_dominate:
+                    npop_good_value.append([i + (1 + gen) * 100, Q, nmi])  # 新值加编号100处理
+                    npop_good_partition.append(components)
+                else:
+                    npop_ns[i] = pop_ns[i]
+
+            npop_gv_i = []
+            for i in range(len(npop_good_value)):
+                npop_gv_i.append(npop_good_value[i][0])
+
+            # 帕累托最优解集合
+            all_value = rep_value + npop_good_value
+            nrep_value = pareto(all_value)
+
+            rep_gv_i = []
+            for i in range(len(rep_value)):
+                rep_gv_i.append(rep_value[i][0])
+            for i in range(len(nrep_value)):
+                j = nrep_value[i][0]
+                if j < 100 * (gen + 1):
+                    nrep_ns.append(rep_ns[rep_gv_i.index(j)])
+                    nrep_partition.append(rep_partition[rep_gv_i.index(j)])
+                else:
+                    nrep_ns.append(npop_ns[j % 100])
+                    nrep_partition.append(npop_good_partition[npop_gv_i.index(j)])
+
+            # 更新rep
+            rep_ns = nrep_ns
+            rep_value = nrep_value
+            rep_partition = nrep_partition
+            # 迭代终止条件
+            best_gen.append(sorted(rep_value, key=lambda x: x[1], reverse=True)[0])
+            if gen >= 1 and best_gen[gen][1:] == best_gen[gen - 1][1:]:
+                gen_equal += 1
+            gen += 1
+
+        # 选择模块度最大的一个作为最终结果
+        best = sorted(rep_value, key=lambda x: x[1], reverse=True)[0]
+        best_location = rep_value.index(best)
+
+        # 某一最好的结果的分区
+        best_partition = rep_partition[best_location]
+        return best_partition
+
+    pop_N=50
+    T = 11  # 总时间步 一共T-1个时间步
+
+    file_qian = "static/data/synfix/z_3/synfix_3.t"  # 文件名前缀
+    # file_qian = "static/data/Cell/real.t"  # 文件名前缀
+    file_bian = ".edges"  # 后缀--边
+
+    # 保存每一时间片的社区划分结果
+    all_best_components=[]
+
+    # 保存所有时间片的网络结构
+    all_graph_data=[]
+
+    # 第一个时间步
+    # result_pre:最优社区划分
+    # G_pre：前一个网络图
+    # graph_data：网络图数据
+    components_pre, G_pre, graph_data = staticMoacd(file_qian + "01" + file_bian, pop_N)
+    G_pre_nn = G_pre.number_of_nodes()  # 前一个时间片图的节点个数
+
+    socketio.emit('server_response',
+                  {'data': [graph_data, components_pre],'count':1},
+                  namespace='/dyanmicMOACD')
+
+    all_graph_data.append(graph_data)
+    all_best_components.append(components_pre)
+
+    # 之后的时间步
+    for t in range(2, T):
+        count=t
+        if t < 10:
+            t = "0" + str(t)
+
+        network_synfix, num_nodes_synfix, graph_data_synfix = init_network(file_qian + str(t) + file_bian)
+        all_graph_data.append(graph_data_synfix)
+
+        G = nx.Graph()  # 图数据
+
+        for edge in network_synfix:
+            G.add_edge(edge[0], edge[1])
+
+        G_nn = G.number_of_nodes()
+        com_nn = cal_com_node(G_pre, G)  # 计算两个图相同节点的数量
+        edge_num = G.number_of_edges()
+        m2 = edge_num * 2
+
+        Degree, B = deg_and_B(G)  # 度矩阵和B矩阵（B矩阵用于模块度计算）
+
+        # 初始社区划分方案
+        pop_ns, pop_partition, pop_value = init_community(G, B, pop_N)
+
+        # 求解帕累托最优解
+        rep_value = pareto(pop_value)
+        rep_ns = []  # 帕累托最优解的节点邻接表示集合
+        rep_partition = []  # 帕累托最优解的分区方案集合
+        for i in range(len(rep_value)):
+            j = rep_value[i][0]
+            rep_ns.append(pop_ns[j])
+            rep_partition.append(pop_partition[j])
+
+        # 最好的结果的分区
+        best_partition = iteration(G, pop_ns, pop_value, rep_ns, rep_value, rep_partition, components_pre, G_pre_nn, G_nn, com_nn,
+                         m2, B, pop_N)
+
+        # 这一时间步的图为下一时间步的图比较的对象，这一时间步的分区结果设置为下一个前一个分区结果
+        G_pre = G
+        G_pre_nn = G_pre.number_of_nodes()  # 前一个时间片图的节点个数
+        components_pre = best_partition
+        all_best_components.append(components_pre)
+
+
+        socketio.emit('server_response',
+                      {'data': [graph_data_synfix, components_pre],'count':count},
+                      namespace='/dyanmicMOACD')
+
+    # 最后接收一次空数据，前端显示“演化结束”
+    socketio.sleep(1) # 休眠1秒
+    socketio.emit('server_response',
+                  {'data': [0, 0],'count':0},
+                  namespace='/dyanmicMOACD')
+
+
+async_mode = None
+thread = None
 app = Flask(__name__)
 app.secret_key = 'lisenzzz'
-path = 'static/data/synfix/z_3/synfix_3.t01.edges'
-path1 = 'static/data/Wiki.txt'
+socketio = SocketIO(app, async_mode=async_mode)
+path='static/data/synfix/z_3/synfix_3.t01.edges'
+path1='static/data/Wiki.txt'
 networkTemp, number_of_nodes, graph_data = init_network('static/data/Wiki.txt')
-network_synfix, num_nodes_synfix, graph_data_synfix = init_network('static/data/synfix_3.t01.edges')
-
+network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path)
 
 @app.route('/')
 def hello_world():
@@ -1439,26 +2025,27 @@ def StaticMOACD():
     rep_par = json.dumps(rep_partition)  # 传给前端的帕累托最优划分方案
 
     # 迭代更新解决方案
-    genmax = 20  # 最大迭代次数
-    gen = 0  # 当前迭代次数
-    best_gen = []  # 迭代过程中最好的值
-    gen_equal = 0  # 多目标值相等的次数
-    updated_par = []  # 记录每次迭代中被选中更新的分区方案
-    node_update_rec = []  # 每次迭代对应方案的每个节点的更新记录
+    genmax = 20             # 最大迭代次数
+    gen = 0                 # 当前迭代次数
+    best_gen = []           # 迭代过程中最好的值
+    gen_equal = 0           # 多目标值相等的次数
+    updated_par = []        # 记录每次迭代中被选中更新的分区方案
+    node_update_rec = []    # 每次迭代对应方案的每个节点的更新记录
     while gen < genmax and gen_equal < 10:
         npop_ns = copy.deepcopy(pop_ns)  # 深拷贝
-        npop_good_value = []  # 更新后较好的多目标值
+        npop_good_value = []      # 更新后较好的多目标值
         npop_good_partition = []  # 更新后较好的划分方案
-        nrep_value = []  # 新的帕累托最优多目标值
-        nrep_ns = []  # 新的帕累托节点邻接表示
-        nrep_partition = []  # 新的帕累托社区划分方案
-        method = 1  # 更新策略
-        update_num = 10  # 每次迭代的更新次数
-        record_gen = []  # 第gen次迭代的所有节点更新记录
-        up_par_gen = []  # 第gen次迭代中被选中更新的划分方案
+        npop_good_ns = []         # 更新后较好的节点邻接表示
+        nrep_value = []           # 新的帕累托最优多目标值
+        nrep_ns = []              # 新的帕累托节点邻接表示
+        nrep_partition = []       # 新的帕累托社区划分方案
+        method = 1                # 更新策略
+        update_num = 10          # 每次迭代的更新次数
+        record_gen = []           # 第gen次迭代的所有节点更新记录
+        up_par_gen = []           # 第gen次迭代中被选中更新的划分方案
         for i in range(update_num):
-            npop_ns[i] = random.sample(rep_ns, 1)[0]  # 随机从帕累托前沿中选择一个方案
-            t_ns = copy.deepcopy(npop_ns[i])  # 暂存当前选中的方案
+            npop_ns[i] = copy.deepcopy(random.sample(rep_ns, 1)[0])  # 随机从帕累托前沿中选择一个方案
+            t_ns = copy.deepcopy(npop_ns[i])             # 暂存当前选中的方案
             # 随机选择一种算法更新
             if random.random() < 0.2:
                 npop_ns[i] = mutation(G, npop_ns[i])  # 邻居多样策略
@@ -1485,7 +2072,7 @@ def StaticMOACD():
                         t_record[node - 1] = com_id
                     com_id += 1
                 for edge in npop_ns[i]:
-                    record[edge[0] - 1] = t_record[edge[1] - 1]
+                    record[edge[0]-1] = t_record[edge[1]-1]
                 record_gen.append([method, record])
 
             # 判断是否新值旧值支配情况
@@ -1495,42 +2082,42 @@ def StaticMOACD():
             components = [list(c) for c in list(nx.connected_components(G_new))]
             Q = cal_Q(components, node_num, 2 * edge_num, B)
             GS = silhouette(G, components)
-            # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧址
-            if (Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2]):
+            # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧值
+            if (Q == 0.0) or ((Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2])):
                 no_dominate = False
             else:
                 no_dominate = True
             # 支配，新值直接输出，否则，改为旧值
             if no_dominate:
                 npop_good_value.append([i + (1 + gen) * 100, Q, GS])  # 新值加编号100处理
-                npop_good_partition.append(components)
+                npop_good_partition.append(copy.deepcopy(components))
+                npop_good_ns.append(copy.deepcopy(npop_ns[i]))
             else:
                 npop_ns[i] = pop_ns[i]
 
-        npop_gv_i = []
-        for i in range(len(npop_good_value)):
-            npop_gv_i.append(npop_good_value[i][0])
 
         # 帕累托最优解集合
         all_value = rep_value + npop_good_value
-        # nrep_value = pareto(all_value)
         ns, par, nrep_value = pareto(pop_ns, pop_partition, all_value)
         # rep_value 位置
         rep_gv_i = []
         for i in range(len(rep_value)):
             rep_gv_i.append(rep_value[i][0])
+        npop_gv_i = []
+        for i in range(len(npop_good_value)):
+            npop_gv_i.append(npop_good_value[i][0])
         for i in range(len(nrep_value)):
             j = nrep_value[i][0]
             if j < 100 * (gen + 1):
-                nrep_ns.append(rep_ns[rep_gv_i.index(j)])
-                nrep_partition.append(rep_partition[rep_gv_i.index(j)])
+                nrep_ns.append(copy.deepcopy(rep_ns[rep_gv_i.index(j)]))
+                nrep_partition.append(copy.deepcopy(rep_partition[rep_gv_i.index(j)]))
             else:
-                nrep_ns.append(npop_ns[j % 100])
-                nrep_partition.append(npop_good_partition[npop_gv_i.index(j)])
+                nrep_ns.append(copy.deepcopy(npop_good_ns[npop_gv_i.index(j)]))
+                nrep_partition.append(copy.deepcopy(npop_good_partition[npop_gv_i.index(j)]))
 
-        rep_ns = nrep_ns
-        rep_value = nrep_value
-        rep_partition = nrep_partition
+        rep_ns = copy.deepcopy(nrep_ns)
+        rep_value = copy.deepcopy(nrep_value)
+        rep_partition = copy.deepcopy(nrep_partition)
 
         # 保存当前迭代的更新记录
         updated_par.append(up_par_gen)
@@ -1545,6 +2132,7 @@ def StaticMOACD():
     best = sorted(rep_value, key=lambda x: x[1], reverse=True)[0]
     best_location = rep_value.index(best)
     best_partition = rep_partition[best_location]
+
     updated_par = json.dumps(updated_par)
     node_update_rec = json.dumps(node_update_rec)
     best_partition = json.dumps(best_partition)
@@ -1553,5 +2141,15 @@ def StaticMOACD():
                            updated_par=updated_par, node_update_rec=node_update_rec, best_partition=best_partition)
 
 
+@app.route('/dyanmicMOACD')
+def dyanmicMOACD():
+    return render_template('DyanmicMOACD.html', async_mode=socketio.async_mode)
+
+# 前后端通信
+@socketio.on('connect', namespace='/dyanmicMOACD')
+def test_connect():
+    thread = socketio.start_background_task(target=dyanmicMOACD_thread)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)
+

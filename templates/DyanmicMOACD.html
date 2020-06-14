@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html style="height: 100%; initial-scale: 0.1">
+<head>
+    <meta charset="UTF-8">
+    <title>多目标优化动态社区发现算法划分过程</title>
+</head>
+<body style="height: 100%; margin: 0">
+<div id="container" style="height: 100%"></div>
+<script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript" src="/static/js/function.js"></script>
+<script type="text/javascript" src="/static/js/jquery.js"></script>
+<script type="text/javascript" src="//cdn.bootcss.com/socket.io/1.5.1/socket.io.min.js"></script>
+<script type="text/javascript">
+    var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var option;
+
+    var cur_id = 0;
+
+    var again_show_graph = [];
+    var again_show_components = [];
+
+    var graph, best_components;
+    var again_graph, again_best_components;
+
+    //准备好统一的 callback 函数
+    var update_mychart = function (res) {
+
+        // 隐藏加载动画
+        myChart.hideLoading();
+        if (cur_id <= 10) {
+            graph = res.data[0];
+            best_components = res.data[1];
+            console.log(parseInt(parseInt(res.count)));
+
+            //初始化图数据
+            graph = init_graph(graph);
+            //初始化属性
+            option = init_option(graph);
+
+            //执行该语句就可以根据你设置的属性进行图的生成
+            myChart.setOption(option);
+            if (cur_id === 0) {
+                option.title = {
+                    text: '第' + (cur_id + 1) + '个时间片的网络结构',
+                    subtext: '',
+                    top: 'top',
+                    left: 'left'
+                };
+            }
+            else {
+                again_show_graph.push(graph);
+                again_show_components.push(best_components);
+                //设置节点类别
+                option = set_node_category(option, best_components, graph);
+                option.title = {
+                    text: '第' + (cur_id) + '个时间片的社区划分结果',
+                    subtext: '',
+                    top: 'top',
+                    left: 'left'
+                };
+            }
+            myChart.setOption(option);
+            cur_id++;
+        }
+        else {
+            graph = res.data[0];
+            best_components = res.data[1];
+            console.log(parseInt(parseInt(res.count)));
+            option.title = {
+                text: '社区演化结束',
+                subtext: '',
+            };
+            option.toolbox={
+                orient:'vertical',
+                itemSize: 35,  {# 工具栏 icon 的大小 #}
+                itemGap: 25,   {# 工具栏 icon 每项之间的间隔 #}
+                top:10,
+                iconStyle: {
+                    emphasis: {
+                        color:'#000000',
+                        textPosition: 'left',
+                        textAlign:'right',
+                        size:30
+                    }
+                },
+                feature:{
+                    myClick1:{
+                        show: true,
+                        title: '第1个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/1.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[0];
+                            again_best_components = again_show_components[0];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 1 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick2:{
+                        show: true,
+                        title: '第2个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/2.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[1];
+                            again_best_components = again_show_components[1];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 2 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick3:{
+                        show: true,
+                        title: '第3个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/3.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[2];
+                            again_best_components = again_show_components[2];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 3 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick4:{
+                        show: true,
+                        title: '第4个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/4.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[3];
+                            again_best_components = again_show_components[3];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 4 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick5:{
+                        show: true,
+                        title: '第5个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/5.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[4];
+                            again_best_components = again_show_components[4];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 5 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick6:{
+                        show: true,
+                        title: '第6个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/6.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[5];
+                            again_best_components = again_show_components[5];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 6 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick7:{
+                        show: true,
+                        title: '第7个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/7.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[6];
+                            again_best_components = again_show_components[6];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 7 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick8:{
+                        show: true,
+                        title: '第8个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/8.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[7];
+                            again_best_components = again_show_components[7];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 8 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick9:{
+                        show: true,
+                        title: '第9个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/9.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[8];
+                            again_best_components = again_show_components[8];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 9 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    },
+                    myClick10:{
+                        show: true,
+                        title: '第10个时间片的社区划分结果',
+                        icon: 'image://../static/image/icon/10.png',
+                        onclick: function () {
+                            again_graph = again_show_graph[9];
+                            again_best_components = again_show_components[9];
+                            console.log(again_graph);
+                            //初始化属性
+                            option = init_option(again_graph);
+
+                            //设置节点类别
+                            option = set_node_category(option, again_best_components, again_graph);
+                            option.title = {
+                                text: '第' + 10 + '个时间片的社区划分结果',
+                                subtext: '',
+                                top: 'top',
+                                left: 'left'
+                            };
+                            //执行该语句就可以根据你设置的属性进行图的生成
+                            myChart.setOption(option);
+                        }
+                    }
+                }
+            };
+            myChart.setOption(option);
+        }
+    };
+
+    // 首次显示加载动画
+    myChart.showLoading();
+
+    // 建立socket连接，等待服务器“推送”数据，用回调函数更新图表
+    $(document).ready(function () {
+        namespace = '/dyanmicMOACD';
+        var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+        socket.on('server_response', function (res) {
+            update_mychart(res);
+        });
+    });
+
+    function set_node_category(option, partition, graph) {//根据partition里的社区划分方案设置节点的类别
+        var com_num = partition.length;     //社区个数
+        var colors = ['red', 'green', 'blue', 'yellow', 'pink', 'orange', 'purple', '#2f4554', '#0049f6', '#9f44f8'];
+        var categories = [];
+        var node = 0;
+        for (var i = 0; i < com_num; i++) {   //设置每个社区的类别属性
+            categories[i] = {
+                name: '社区' + (i + 1),
+                itemStyle: {
+                    color: colors[i],
+                    opacity: 1, //不透明度
+                },
+                label: {
+                    fontSize: 15,
+                },
+            };
+        }
+        for (var i = 0; i < com_num; i++) {   //根据partition设置每个节点的类别
+            var community = partition[i];   //社区i中的节点
+            var com_node_num = community.length;    //社区i的节点个数
+            for (var j = 0; j < com_node_num; j++) {
+                node = community[j] - 1;
+                graph.nodes[node].category = i;
+            }
+        }
+
+        //更改option
+        option.legend = [{
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }];
+
+        option.series[0].categories = categories;
+        option.series[0].data = graph.nodes;
+        option.series[0].links = graph.links;
+        return option;
+    }
+
+    init_option = function (graph) {
+        var option;
+        var categories = [];
+
+        //设置要生成的图的相关属性
+        option = {
+            title: {
+                text: '',
+                subtext: '',
+                top: 'top',
+                left: 'left'
+            },
+            tooltip: {},
+            animationDuration: 1500,
+            animationEasingUpdate: 'quinticInOut',
+            series: [
+                {
+                    name: 'Les Miserables',
+                    type: 'graph',
+                    layout: 'none',
+                    //下面三项分别设置节点数据，边数据，种类数据
+                    data: graph.nodes,
+                    links: graph.links,
+                    categories: categories,
+                    roam: true,
+                    animation: false,
+                    focusNodeAdjacency: true,
+                    itemStyle: {
+                        normal: {
+                            borderColor: '#fff',
+                            borderWidth: 1,
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)'
+                        }
+                    },
+                    label: {
+                        position: 'right',
+                        formatter: '{b}'
+                    },
+                    lineStyle: {
+                        color: 'rgba(0, 0, 0, 0.7)',
+                        curveness: 0.3
+                    },
+                    emphasis: {
+                        lineStyle: {
+                            width: 10
+                        }
+                    },
+                    force: {
+                        repulsion: 270
+                    }
+                }
+            ]
+        };
+        return option;
+    }
+
+</script>
+</body>
+</html>
