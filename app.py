@@ -34,12 +34,12 @@ def init_network(data_path):
 
     G = nx.Graph(network)
 
-    # 让节点名称和索引相对应
-    nodes_list = list(nx.nodes(G))
-    nodes_list.sort()
-    node_dict = dict()
-    for i in range(node_num):
-        node_dict[nodes_list[i]] = i
+    # # 让节点名称和索引相对应
+    # nodes_list = list(nx.nodes(G))
+    # nodes_list.sort()
+    # node_dict = dict()
+    # for i in range(node_num):
+    #     node_dict[nodes_list[i]] = i
 
     # 记录每个节点的位置信息
     pos = nx.drawing.spring_layout(G)
@@ -47,13 +47,28 @@ def init_network(data_path):
     for i in range(node_num):
         node_coordinate.append([])
     for i, j in pos.items():
-        node_coordinate[node_dict[i]].append(float(j[0]))
-        node_coordinate[node_dict[i]].append(float(j[1]))
+        # node_coordinate[node_dict[i]].append(float(j[0]))
+        # node_coordinate[node_dict[i]].append(float(j[1]))
+        node_coordinate[i-1].append(float(j[0]))
+        node_coordinate[i-1].append(float(j[1]))
 
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
     nodes_data_json = []
-    for node in nodes_list:
+    # for node in nodes_list:
+    #     nodes_data_json.append({
+    #         'attributes': {'modularity_class': 0},
+    #         'id': str(node),
+    #         'category': 0,
+    #         'itemStyle': '',
+    #         'label': {'normal': {'show': 'false'}},
+    #         'name': str(node),
+    #         'symbolSize': 35,
+    #         'value': 111,
+    #         'x': node_coordinate[node_dict[node]][0],
+    #         'y': node_coordinate[node_dict[node]][1]
+    #     })
+    for node in range(node_num):
         nodes_data_json.append({
             'attributes': {'modularity_class': 0},
             'id': str(node),
@@ -63,8 +78,8 @@ def init_network(data_path):
             'name': str(node),
             'symbolSize': 35,
             'value': 111,
-            'x': node_coordinate[node_dict[node]][0],
-            'y': node_coordinate[node_dict[node]][1]
+            'x': node_coordinate[node][0],
+            'y': node_coordinate[node][1]
         })
     links_data_json = []
     cur_edges = []
