@@ -1,4 +1,4 @@
-init_graph = function(graph){
+init_graph = function(graph, flag=true){
     graph = JSON.parse(graph);
 
     //给节点的属性进行操作
@@ -6,7 +6,8 @@ init_graph = function(graph){
         node.itemStyle = null;
         node.symbolSize = 15;
         // node.value = node.symbolSize;
-        node.category = node.attributes.modularity_class;
+        if(flag == true)
+            node.category = node.attributes.modularity_class;
         node.draggable = true;
     });
     return graph;

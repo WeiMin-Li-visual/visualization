@@ -1377,16 +1377,20 @@ def collectiveInfluenceComparison():
                                method1=method1, method2=method2)
 
 
-@app.route('/CommunityECDR')
+@app.route('/communityECDR')
 def ECDR():
     from scipy.linalg import qr, svd, pinv
     import pandas as pd
     import numpy as np
 
     node_num = num_nodes_synfix  # 网络中节点的数量
+    graph_edge = json.loads(graph_data_synfix)['links']
     edgeNum = [[0 for i in range(node_num)] for j in range(node_num)]
-    for i in range(len(network_synfix)):
-        edgeNum[network_synfix[i][0] - 1][network_synfix[i][1] - 1] = i
+    for i in range(len(graph_edge)):
+        source = int(graph_edge[i]['source'])
+        target = int(graph_edge[i]['target'])
+        edgeNum[source][target] = i
+        edgeNum[target][source] = i
     # 返回所有的边，以列表的形式[[],[]...]
     edges = network_synfix
 
@@ -1534,7 +1538,7 @@ def ECDR():
                            communityEdge=communityEdge, edgeNum=edgeNum)
 
 
-@app.route('/abc')
+@app.route('/communityEvolutionECDR')
 def ECDR_Evolution():
     from scipy.linalg import qr, svd, pinv
     import pandas as pd
@@ -1587,17 +1591,6 @@ def ECDR_Evolution():
             thres[i][i] = s ** (1 / D[i][i])
         return thres
 
-    # 节点在t时刻的局部紧密邻居
-    def LocalCloseNeighbors():
-        thres = Threshold()  # 局部亲密邻居阈值
-        AA = copy.deepcopy(A)  # 邻接矩阵
-        Dis = NodeDistance()  # 邻居节点间的距离
-        for i in range(len(AA)):
-            for j in range(len(AA[0])):
-                if AA[i][j] == 1 and (Dis[i][j] <= thres[i][i] or Dis[i][j] <= thres[j][j]):
-                    AA[i][j] = AA[j][i] = 2
-        return AA  # 返回一个矩阵，如果AAij=2，则说明i,j这两个节点是紧密邻居
-
     # 每个节点局部最小聚类阈值
     def LocalMinimumClusteringThreshold(a):
         LMCT = []
@@ -1642,7 +1635,7 @@ def ECDR_Evolution():
             else:
                 continue
             coreList = [node]
-            community[cNum].append(1 * node + 1)
+            community[cNum].append(1 * node)
             communityEdge[cNum].append([node, node])
             unvisited[node] = 1
             index = 0
@@ -1655,7 +1648,7 @@ def ECDR_Evolution():
                             coreList.append(n)
                         n *= 1
                     if unvisited[abs(n)] == 0:
-                        community[cNum].append(n + 1)
+                        community[cNum].append(n)
                         communityEdge[cNum].append([corenode, abs(n)])
                         unvisited[abs(n)] = 1
                 index += 1
@@ -1748,9 +1741,19 @@ def ECDR_Evolution():
 
     totalQ = []
     totalCommunity = []
+    timeEdgeNum = []
+    timeCommunityEdge = []
     graph_data = []
-    path = [r'C:/Users/Administrator/OneDrive/visual/visualization/static/data/synfix/z_3/synfix_3.t01.edges',
-            r'C:/Users/Administrator/OneDrive/visual/visualization/static/data/synfix/z_3/synfix_3.t02.edges',
+    path = [r'static/data/synfix/z_3/synfix_3.t01.edges',
+            r'static/data/synfix/z_3/synfix_3.t02.edges',
+            r'static/data/synfix/z_3/synfix_3.t03.edges',
+            r'static/data/synfix/z_3/synfix_3.t04.edges',
+            r'static/data/synfix/z_3/synfix_3.t05.edges',
+            r'static/data/synfix/z_3/synfix_3.t06.edges',
+            r'static/data/synfix/z_3/synfix_3.t07.edges',
+            r'static/data/synfix/z_3/synfix_3.t08.edges',
+            r'static/data/synfix/z_3/synfix_3.t09.edges',
+            r'static/data/synfix/z_3/synfix_3.t10.edges',
             ]
     for j in range(len(path)):
         network_synfix, num_nodes_synfix, g = init_network(path[j])
@@ -1758,6 +1761,14 @@ def ECDR_Evolution():
         node_num = num_nodes_synfix  # 网络中节点的数量
         # 返回所有的边，以列表的形式[[],[]...]
         edges = network_synfix
+        graph_edge = json.loads(g)['links']
+        edgeNum = [[0 for i in range(node_num)] for j in range(node_num)]
+        for i in range(len(graph_edge)):
+            source = int(graph_edge[i]['source'])
+            target = int(graph_edge[i]['target'])
+            edgeNum[source][target] = i
+            edgeNum[target][source] = i
+        timeEdgeNum.append(edgeNum)
         A = np.zeros([node_num, node_num], dtype=int)  # 网络G的邻接矩阵A
         for i in range(len(edges)):
             A[int(edges[i][0]) - 1][int(edges[i][1]) - 1] = 1  # 数据中的节点是从1开始的，而矩阵是从0开始的
@@ -1786,6 +1797,16 @@ def ECDR_Evolution():
         for i in C:
             if len(i) >= 3:
                 tempC.append(i)
+        tempEdge = []
+        n = 0
+        for community in tempC:
+            tempEdge.append([])
+            for i in range(len(community)):
+                for j in range(len(community)):
+                    if i != j and A[community[i]][community[j]] != 0:
+                        tempEdge[n].append([community[i], community[j]])
+            n += 1
+        timeCommunityEdge.append(tempEdge)
         totalCommunity.append(tempC)
     CT = []  # 不同时间片的节点贡献度
     for cNum in range(len(totalCommunity)):
@@ -1793,7 +1814,7 @@ def ECDR_Evolution():
     IM = dynamicContribute(CT)  # 不同时间片的节点动态贡献度
     S = communitySimilar(IM, totalCommunity)
     return render_template('ECDR_Evolution.html', graph_data=graph_data, timeCommunity=totalCommunity,
-                           S=S)
+                           S=S, timeCommunityEdge=timeCommunityEdge, timeEdgeNum=timeEdgeNum)
 
 
 @app.route('/StaticMOACD')

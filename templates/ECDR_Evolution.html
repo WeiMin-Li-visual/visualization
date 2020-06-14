@@ -2,57 +2,315 @@
 <html style="height: 100%">
 <head>
   <meta charset="utf-8">
+  <style>
+    .next,
+    .control {
+        border: 1px solid black;
+        border-radius: 10px;
+        padding: 0 10px 0 10px;
+        height: 30px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 30px;
+        text-align: center;
+        margin-top: 200px;
+        cursor: pointer;
+    }
+    .next {
+        display: none;
+        margin-top: 20px;
+    }
+    .function, 
+    #container {
+        float: left;
+    }
+    #evolution {
+        width: 96%;
+        height: 100%;
+        position: absolute;
+        border-left: 2px solid #000;
+        right: 0px;
+        top: 0px;
+        overflow: scroll;
+        background-color: #fff;
+    }
+    .left,
+    .right {
+        height: 300px;
+        width: 40%;
+    }
+    .left {
+        float: left;
+    }
+    .right {
+        float: right;
+    }
+    .change {
+        border-bottom: 1px solid #000;
+        overflow: hidden;
+    }
+    .change:last-child {
+        border-bottom: 0;
+    }
+    #analysic {
+        height: 100%;
+        font-size: 14px;
+        width: 63%;
+        position: absolute;
+        right: -60.6%;
+        margin: 0;
+    }
+    .analy {
+        float: left;
+        margin-left: 50px;
+        margin-top: 128px;
+        font-size: 25px;
+    }
+    #sign {
+        font-size: 20px;
+        font-weight: 900;
+        width: 4%;
+        text-align: center;
+        border: 1px solid #000;
+        position: absolute;
+        top: 50%;
+        background-color: #fff;
+        transform: translateY(-50%);
+        border-right: 0;
+    }
+    #subtitle {
+        height: 30px;
+        border-bottom: 1px solid #000;
+    }
+    #subtitle li {
+        text-align: center;
+        list-style: none;
+        width: 300px;
+        font-size: 20px;
+    }
+    #subtitle li:first-child {
+        float: left;
+    }
+    #subtitle li:last-child {
+        float: right;
+    }
+</style>
+</style>
 </head>
-<body style="height: 100%; margin: 0">
-  <div id="container" style="height: 100%"></div>
-  <script type="text/javascript" src="/static/js/echarts.js"></script>
-  <script type="text/javascript" src="/static/js/function.js"></script>
-  <script type="text/javascript">
+<body style="height: 100%; margin: 0; overflow: hidden;">
+    <div class="function" style="height: 100%; width: 15%;">
+        <div id="title" style="height: 100px"></div> 
+    
+    
+    </div>
+    <div id="container" style="height: 100%; width: 85%;"></div>
+    <div id="analysic">
+        <div id="sign">社区演化分析</div>
+        <div id="evolution">
+            <div id="subtitle">
+                <li>上一时间片</li>
+                <li>当前时间片</li>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="/static/js/echarts.js"></script>
+    <script type="text/javascript" src="/static/js/function.js"></script>
+    <script src="/static/js/jquery.js"></script>
+    <script type="text/javascript">
     var dom = document.getElementById("container");
+    var dom2 = document.getElementById("title");//初始化title
     var myChart = echarts.init(dom);
+    var myChartTitle = echarts.init(dom2);
     var option;
-    var graph = {{ graph_data | tojson }} 
-    
-    var timeCommunity = {{timeCommunity}}
-    var S = {{S}}
-    
-    var nodeIndex = 0; //记录当前访问的节点的下标
-    var communityNum = 0;
+    var timeGraph = {{ graph_data | tojson }}; //存放所有时间片的图数据
+    var timeEdgeNum = {{timeEdgeNum}};////存放所有时间片的边序号
+    var timeCommunity = {{timeCommunity}};//存放所有时间片的社区节点数据
+    var timeCommunityEdge = {{timeCommunityEdge}};////存放所有时间片的社区边数据
+    var S = {{S}};//存放所有时间片的社区演化数据，字典类型（上一时间片--当前时间片）
     var subtext = "";
-    var stamp = 0 // 时间
-    intervalNo = setInterval(() => {
-        graph = init_graph(graph[stamp]); 
-        option = initOption(graph, timeCommunity[stamp].length);
-        myChart.setOption(option);
-        //corenode = JSON.parse(corenode);
-        //LocalClosedNeighbors = JSON.parse(LocalClosedNeighbors)
-        var text = "社区演化过程"; 
-        var subtext = "第" + stamp +"个时间片"
-        update_show(text,subtext,myChart);
-        for(var cNum = 0; cNum < timeCommunity[stamp].length; ++cNum){
-            for(var node in timeCommunity[stamp][cNum])
-                graph.nodes[node].category = cNum + 1;
-        }
-        ++stamp;
-    }, 1000);
-   
-    function update_show(text,subtext,myChart) {
+    var stamp = 0; // 时间
+    var $div = $('<div class="control">暂停社区演化过程</div><div class="next">下一个时间片</div>');
+    $('.function').append($div);
+    showEvolution();//展示当前时间片的社区划分结果
+    var intervalNo = setInterval(() => {
+        showEvolution()
+    }, 2000);
+    var flag = false;
+    function update_show_title(text,subtext,myChart) {
       myChart.setOption({
         title:{
           text:text,
           subtext: subtext
         },
+      })
+    }
+    function update_show_graph(myChart) {
+      myChart.setOption({
         series:[{
           data:graph.nodes,
           links:graph.links
         }]
       })
     }
-
-    function initOption(graph, cNum){
-        var option;
+    function stopEvolution() {
+        clearInterval(intervalNo);
+    }
+    function showEvolution() {
+        graph = init_graph(timeGraph[stamp]);
+        option = init_option(graph);
+        option = initOption(timeCommunity[stamp].length, option);
+        myChart.setOption(option);
+        //corenode = JSON.parse(corenode);
+        //LocalClosedNeighbors = JSON.parse(LocalClosedNeighbors)
+        var text = "社区演化过程"; 
+        var subtext = "第" + (stamp + 1) +"个时间片";
+        for(var cNum = 0; cNum < timeCommunity[stamp].length; ++cNum){
+            for(var i = 0; i < timeCommunity[stamp][cNum].length; ++i) {
+                graph.nodes[timeCommunity[stamp][cNum][i]].category = cNum + 1;
+            }
+            la = 1;
+        }
+        update_show_title(text,subtext,myChartTitle);
+        update_show_graph(myChart);
+        ++stamp;
+        if(stamp == timeCommunity.length) {
+            $(".function .control").text('重新开始社区演化过程');
+            flag = true;
+            $(".function .next").fadeOut(300);
+            clearInterval(intervalNo);
+        }
+    }
+    function startEvolution() {
+        clearInterval(intervalNo);
+        intervalNo = setInterval(() => {
+            showEvolution()
+        }, 2000);
+    }
+    function evolutionAnalysic(time) {
+        //展示上一时间片到当前时间片的演化结果
+        var currentTime = time; //当前时间片
+        var postTime = time - 1;//上一时间片
+        var cSign = [] //在遍历所有匹配的社区时，标记不需要判断的社区，值为1则不需要判断
+        for(var i in S[postTime])
+            cSign.push(0)
+        var m = 0
+        for(var key in S[postTime]) {
+            if(cSign[m] == 1) continue;
+            //构造html元素
+            $new = $('<div class="change"><div class="left"></div><div class="analy"></div><div class="right"></div></div>');
+            var currentGraph = JSON.parse(timeGraph[postTime]);//获得相应时间片的图数据
+            var nextGraph = JSON.parse(timeGraph[currentTime]);
+            var text;//社区演化结果（增长或缩小等）
+            var oldCommunityGraph = {nodes: [], links: []};//记录对应的图数据
+            var newCommunityGraph = {nodes: [], links: []};
+            var key_ = [Number(key)]//记录上一时间片的社区
+            if(S[postTime][key].length == 1) {
+                //上一时间片key对应的社区与当前时间片的一个社区有演化关系
+                if (timeCommunity[postTime][key].length < timeCommunity[currentTime][S[postTime][key][0]].length) {
+                    //判断社区是否合并
+                    var flag = true;
+                    var n = 0;
+                    for(var k in S[postTime]) {
+                        if(k != key && S[postTime][k].length == 1 && S[postTime][k][0] == S[postTime][key][0]) {
+                            if(timeCommunity[postTime][k].length < timeCommunity[currentTime][S[postTime][k][0]].length) {
+                                key_.push(Number(k))
+                                cSign[n] = 1
+                                flag = false;
+                            }
+                        }
+                        ++n;
+                    }
+                    if(flag == true) text = "增长";
+                    else text = "合并";
+                }
+                else {
+                    if (timeCommunity[postTime][key].length > timeCommunity[currentTime][S[postTime][key][0]].length)
+                        text = "缩小";
+                    else text = "继续";
+                }
+            }
+            else {
+                var save = []
+                for(var i in S[postTime][key]) {//判断社区是否分裂
+                    var communityIndex = S[postTime][key][i];
+                    if(timeCommunity[currentTime][communityIndex].length < timeCommunity[postTime][key].length)
+                        save.push(communityIndex)
+                }
+                if(save.length == 1) text = "缩小";
+                else text = "分裂";
+                S[postTime][key] = save;
+            }
+            $new.find('.analy').text(text);//相对应的元素添加文本
+            var oldCommunity = [];//上一时间片的社区结构
+            var oldCommunityEdge = [];//上一时间片社区对应的边
+            var newCommunity = [];//当前时间片的社区结构
+            var newCommunityEdge = [];//当前时间片社区对应的边
+            for(var i in key_) {
+                oldCommunity.push(timeCommunity[postTime][key_[i]]);
+                oldCommunityEdge.push(timeCommunityEdge[postTime][key_[i]]);
+            }
+            for(var i in S[postTime][key]) {
+                newCommunity.push(timeCommunity[currentTime][S[postTime][key][i]]);
+                newCommunityEdge.push(timeCommunityEdge[currentTime][S[postTime][key][i]]);
+            }
+            var nodeNum = 0 //计数，用于在下面的循环中对节点正确分类
+            for(var index in oldCommunity) {
+                for(var nodeIndex in oldCommunity[index]) {
+                    oldCommunityGraph.nodes.push(currentGraph.nodes[oldCommunity[index][nodeIndex]]);
+                    oldCommunityGraph.nodes[nodeNum].category = key_[index] + 1;
+                    ++nodeNum;
+                }
+            }
+            for(var index in oldCommunityEdge) {
+                for(var edgeIndex in oldCommunityEdge[index]) {
+                    var num = timeEdgeNum[postTime][oldCommunityEdge[index][edgeIndex][0]][oldCommunityEdge[index][edgeIndex][1]]
+                    oldCommunityGraph.links.push(currentGraph.links[num]);
+                }
+            }
+            /*
+            for(var index in oldCommunity) {
+                oldCommunityGraph.nodes.push(currentGraph.nodes[oldCommunity[index]]);
+                oldCommunityGraph.nodes[index].category = Number(key)+1
+            }
+            for(var index in oldCommunityEdge) {
+                var num = timeEdgeNum[postTime][oldCommunityEdge[index][0]][oldCommunityEdge[index][1]]
+                oldCommunityGraph.links.push(currentGraph.links[num]);
+            }*/
+            $('#evolution').append($new);//向页面中加入相应的元素
+            oldCommunityGraph = JSON.stringify(oldCommunityGraph);
+            var graph = init_graph(oldCommunityGraph,false);
+            var leftChart = echarts.init($new.find('.left')[0]);
+            var leftOption = init_option(graph);
+            leftOption = initOption(timeCommunity[postTime].length, leftOption, false, key_);
+            leftChart.setOption(leftOption)
+            nodeNum = 0
+            for(var index in newCommunity) {
+                for(var nodeIndex in newCommunity[index]) {
+                    newCommunityGraph.nodes.push(nextGraph.nodes[newCommunity[index][nodeIndex]]);
+                    newCommunityGraph.nodes[nodeNum].category = S[postTime][key][index] + 1;
+                    ++nodeNum;
+                }
+            }
+            for(var index in newCommunityEdge) {
+                for(var edgeIndex in newCommunityEdge[index]) {
+                    var num = timeEdgeNum[currentTime][newCommunityEdge[index][edgeIndex][0]][newCommunityEdge[index][edgeIndex][1]]
+                    newCommunityGraph.links.push(nextGraph.links[num]);
+                }
+            }
+            newCommunityGraph = JSON.stringify(newCommunityGraph);
+            var graph = init_graph(newCommunityGraph,false);
+            var rightChart = echarts.init($new.find('.right')[0]);
+            var rightOption = init_option(graph);
+            rightOption = initOption(timeCommunity[currentTime].length, rightOption, false, S[postTime][key]);
+            rightChart.setOption(rightOption)
+            ++m;
+        }
+    }
+    
+    function initOption(cNum, option, flag=true, index=0){
+        //flag 控制在标签中是否显示所有的社区，如果等于false则之显示index中的社区
         var categories = [];
-        color = ['#2f4554', '#009688', 'green', 'red', 'blue', '#A35B21', 'FE1892', 'ABE512', 'FF4123']
+        color = ['#2f4554', '#009688', 'green', 'red', 'blue', '#12FE63', '#FE1892', '#ABE512', '#FF4123', '#A2E3C4', '#617FFF']
         categories[0] = {
             name: '噪声节点',
             itemStyle: {
@@ -62,85 +320,71 @@
         }
         for(var i = 1; i <= cNum; ++i) {
             categories[i] = {
-            name: '社区' + i,
-            itemStyle: {
-                color: color[i],
-                opacity: 1, //不透明度
-            },
-            label: {
-                fontSize: 20,
-            },
-        };
-        }
-        categories[1] = {
-            name: '社区1',
-            itemStyle: {
-                color: '#009688',
-                opacity: 1, //不透明度
-            },
-            label: {
-                fontSize: 20,
-            },
-        };
-
-        //设置要生成的图的相关属性
-        option = {
-            title: {
-                text: '',
-                subtext: '',
-                top: 'top',
-                left: 'left'
-            },
-            tooltip: {},
-            legend: [{
-                // selectedMode: 'single',
+                name: '社区' + i,
+                itemStyle: {
+                    color: color[i],
+                    opacity: 1, //不透明度
+                },
+                label: {
+                    fontSize: 20,
+                },
+            };
+        }; 
+        if(flag == true) {
+            option.legend = [{
                 data: categories.map(function (a) {
                     return a.name;
                 })
-            }],
-            animationDuration: 1500,
-            animationEasingUpdate: 'quinticInOut',
-            series: [
-                {
-                    name: 'Les Miserables',
-                    type: 'graph',
-                    layout: 'none',
-                    //下面三项分别设置节点数据，边数据，种类数据
-                    data: graph.nodes,
-                    links: graph.links,
-                    categories: categories,
-                    roam: true,
-                    animation: false,
-                    focusNodeAdjacency: true,
-                    itemStyle: {
-                        normal: {
-                            borderColor: '#fff',
-                            borderWidth: 1,
-                            shadowBlur: 10,
-                            shadowColor: 'rgba(0, 0, 0, 0.3)'
-                        }
-                    },
-                    label: {
-                        position: 'right',
-                        formatter: '{b}'
-                    },
-                    lineStyle: {
-                        color: 'rgba(0, 0, 0, 0.7)',
-                        curveness: 0.3
-                    },
-                    emphasis: {
-                        lineStyle: {
-                            width: 10
-                        }
-                    },
-                    force: {
-                        repulsion: 270
-                    }
-                }
-            ]
-        };
+            }];
+        }
+        else {
+            if(typeof(index) == 'object')
+                option.legend = [{
+                    data: index.map(function(a) {
+                        return(categories[a+1].name)
+                    })
+                }];
+            else
+                option.legend = [{
+                    data: [categories[index+1].name]
+                }];
+        }
+        option.series[0].categories = categories;
         return option;
     }
+    $('#sign').on('mouseenter', function() {
+        stopEvolution();
+        evolutionAnalysic(stamp - 1)
+        $(this).parent().stop().animate({right: '0px'}, 1000);
+    })
+    $('#analysic').on('mouseleave', function() {
+        if(flag == false)
+            startEvolution();
+        $(this).stop().animate({right: '-60.6%'}, 1000);
+        setTimeout(() => {
+            $('.change').remove();
+        }, 1000);
+    })
+    $(".function .next").on("click", function() {
+            showEvolution()
+    })
+    $(".function .control").on("click", function() {
+        if(stamp == timeCommunity.length)
+            stamp = 0;
+        if(flag == true) {
+            $(this).text('暂停社区演化过程');
+            flag = false;
+            startEvolution();
+            $(".function .next").fadeOut(300);
+        }
+        else {
+            $(this).text('开始社区演化过程');
+            flag = true;
+            stopEvolution();
+            $(".function .next").fadeIn(300);
+        }
+        
+    })
 </script>
 </body>
 </html>
