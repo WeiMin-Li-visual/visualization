@@ -2014,8 +2014,8 @@ def Evolution():
         isRemoveEdge = 0  # 是否是边删除的情况
         isRemoveNode = 0
         if removeEdge is None and removeEdge != '' and addEdge is None and addEdge != '' and removeNode is None and removeNode != '':
-            if step < len(networkTemp):
-                currentEdge = [networkTemp[step][0] - 1, networkTemp[step][1] - 1]  # 获得边
+            if step < len(networkData):
+                currentEdge = [networkData[step][0] - 1, networkData[step][1] - 1]  # 获得边
             else:
                 return jsonify({'error': 'lengthOver'})
         elif addEdge != '' and addEdge is not None:
@@ -2025,12 +2025,12 @@ def Evolution():
             currentEdge = [int(temp[0]), int(temp[1])]
             temp = [int(temp[0]) + 1, int(temp[1]) + 1]
             temp_ = [temp[1], temp[0]]
-            if temp in networkTemp:
+            if temp in networkData:
                 # 如果出现重复的情况，则删除这些边
-                networkTemp.remove(temp)
-            if temp_ in networkTemp:
+                networkData.remove(temp)
+            if temp_ in networkData:
                 # 如果出现重复的情况，则删除这些边
-                networkTemp.remove(temp_)
+                networkData.remove(temp_)
             if edgeNum[currentEdge[0]][currentEdge[1]] == 0:
                 link_id = len(graph_edge)
                 graph_edge.append({
@@ -2050,10 +2050,10 @@ def Evolution():
             currentEdge = [int(temp[0]), int(temp[1])]
             temp = [int(temp[0]) + 1, int(temp[1]) + 1]
             temp_ = [temp[1], temp[0]]
-            while temp in networkTemp:
-                networkTemp.remove(temp)
-            while temp_ in networkTemp:
-                networkTemp.remove(temp_)
+            while temp in networkData:
+                networkData.remove(temp)
+            while temp_ in networkData:
+                networkData.remove(temp_)
         elif removeNode != '' and removeNode is not None:
             for i in removeNode:
                 if not i.isdigit():
@@ -2087,7 +2087,7 @@ def Evolution():
             eNode.append(currentEdge[1])
             currentEdge = [currentEdge[1], currentEdge[1]]
             timeChangedNodeCommunity = {}
-        if step == len(networkTemp) - 1:
+        if step == len(networkData) - 1:
             isContinue = 0
         time.sleep(s)
         return jsonify({'changedCommunity': timeChangedNodeCommunity, 'delCommunity': deleteCommunity

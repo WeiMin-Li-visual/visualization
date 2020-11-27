@@ -81,30 +81,30 @@
 		<script src="../static/js/jquery.js"></script>
 		<script src="../static/js/jquery.cookie.js"></script>
 		<script>
-		(()=>{
-			if($.cookie('user') == undefined)
-				$(window).attr('location','/login');
-			else {
-				let user = $.cookie('user');
-				$.ajax({
-					type: "POST",
-					url: "/fun",
-					data: {
-						"userName": user
-					},
-					success: function(data) {
-						let $data = $('<dd><a style="cursor: pointer">用户名：'+data.user[0]+'</a></dd>'
-									+ '<dd><a style="cursor: pointer">单位：'+ data.user[4] + '</a></dd>'
-									+ '<dd><a style="cursor: pointer">邮箱：'+ data.user[3] + '</a></dd>' 
-									+ '<dd><a style="cursor: pointer">联系电话：'+ data.user[2] + '</a></dd>')
-						$('#userdata').prepend($data);
-					},
-					error: function() {
-						console.log('error');
-					}
-				})
-			}
-		})()
+		//(()=>{
+		//	if($.cookie('user') == undefined)
+		//		$(window).attr('location','/login');
+		//	else {
+		//		let user = $.cookie('user');
+		//		$.ajax({
+		//			type: "POST",
+		//			url: "/fun",
+		//			data: {
+		//				"userName": user
+		//			},
+		//			success: function(data) {
+		//				let $data = $('<dd><a style="cursor: pointer">用户名：'+data.user[0]+'</a></dd>'
+		//							+ '<dd><a style="cursor: pointer">单位：'+ data.user[4] + '</a></dd>'
+		//							+ '<dd><a style="cursor: pointer">邮箱：'+ data.user[3] + '</a></dd>' 
+		//							+ '<dd><a style="cursor: pointer">联系电话：'+ data.user[2] + '</a></dd>')
+		//				$('#userdata').prepend($data);
+		//			},
+		//			error: function() {
+		//				console.log('error');
+		//			}
+		//		})
+		//	}
+		//})()
 		//JavaScript代码区域
 		$('#loginOut').on('click', function() {
 			$.cookie('user', ''); 
