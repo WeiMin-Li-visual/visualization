@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../static/layui/css/layui.css">
+    <script type="text/javascript" src="../static/layui/layui.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        li {
+            list-style: none;
+        }
+        #first,
+        #second {
+            width: 400px;
+            height: 320px;
+            border: 1px solid black;
+            margin: 100px auto;
+        }
+        #title {
+            height: 100px;
+        }
+        #title p {
+            font-size: 20px;
+            text-align: center;
+            line-height: 100px;
+            font-weight: 700;
+        }
+        input {
+            height: 38px;
+            line-height: 1.3;
+            line-height: 38px\9;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            border-radius: 2px;
+            padding-left: 10px;
+            width: 66%; 
+        }
+        #next,
+        #complete {
+            width: 60%;
+            display: block;
+            margin: 10px auto;
+            border-radius: 10px;
+        }
+        .wrong,
+        .correct {
+            font-size: 24px;
+            font-weight: 700;
+            display: none;
+        }
+        .correct {
+            color: green;
+        }
+        .wrong {
+            color: red;
+        }
+        #second {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!--
+    body {
+        background: url("cover.jpg") no-repeat;
+    }-->
+    <div id='first'>
+        <ul>
+            <li id='title'>
+                <p>修改密码</p>
+            </li>
+            <li id='input'>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">用户名</label>
+                    <div class="layui-input-block">
+                      <input type="text" required  lay-verify="required" placeholder="请输入用户名" autocomplete="off" id="user">
+                        <i class="layui-icon wrong">&#x1006;</i>
+                        <i class="layui-icon correct">&#xe605;</i>
+                    </div>
+                  </div>
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">邮箱</label>
+                    <div class="layui-input-block">
+                      <input type="text" required  lay-verify="required" placeholder="请输入您的邮箱" autocomplete="off" id="mail">
+                    </div>
+                  </div>
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">验证码</label>
+                    <div class="layui-input-block">
+                      <input type="text" required  lay-verify="required" placeholder="4位验证码" autocomplete="off" id="check" style="width: 30%;">
+                      <button class="layui-btn layui-btn-primary" style="margin-left: 10px;" id="send">发送验证码</button>
+                        <i class="layui-icon wrong">&#x1006;</i>
+                        <i class="layui-icon correct">&#xe605;</i>
+                    </div>
+                  </div>
+            </li>
+            <li id='function'>
+                <button class="layui-btn layui-btn-normal" id="next">下一步</button>
+            </li>
+        </ul>
+    </div>
+    <div id='second'>
+        <ul>
+            <li id='title'>
+                <p>修改密码</p>
+            </li>
+            <li id='input'>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">新密码</label>
+                    <div class="layui-input-block">
+                      <input type="password" required  lay-verify="required" oncopy="return false" placeholder="请输入密码" autocomplete="off" id="npw">
+                        <i class="layui-icon wrong">&#x1006;</i>
+                        <i class="layui-icon correct">&#xe605;</i>
+                    </div>
+                  </div>
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">确认密码</label>
+                    <div class="layui-input-block">
+                      <input type="password" required  lay-verify="required" oncopy="return false" placeholder="请再一次输入密码" autocomplete="off" id="confirm">
+                        <i class="layui-icon wrong">&#x1006;</i>
+                        <i class="layui-icon correct">&#xe605;</i>
+                    </div>
+                  </div>
+            </li>
+            <li id='function'>
+                <button class="layui-btn layui-btn-normal" id="complete">完成</button>
+            </li>
+        </ul>
+    </div>
+    <script src="../static/js/jquery.js"></script>
+    <script src="../static/js/jquery.cookie.js"></script>
+    <script>
+        'use strict';
+        function notice(info) {
+            layui.use('layer', function(){
+                    let layer = layui.layer;
+                    layer.msg(info);
+                }); 
+        }
+        function next() {
+            let sign = true;
+            for(let i = 0; i < $('#first .correct').length; ++i) {
+                if($($('#first .correct')[i]).css('display') == 'none') {
+                    notice('请输入正确的信息');
+                    sign = false;
+                    break;
+                }
+            }
+            if(sign) {
+                $('#first').hide().siblings('#second').show();
+            }
+        }
+        function com() {
+            let sign = true;
+            for(let i = 0; i < $('#second .correct').length; ++i) {
+                if($($('#second .correct')[i]).css('display') == 'none') {
+                    notice('请输入正确的信息');
+                    sign = false;
+                    break;
+                }
+            }
+            if(sign) {
+                $.ajax({
+                    type: "POST",
+                    url: "/forget",
+                    data: {
+                        "password": $('#npw').val().trim(),
+                        "user": $('#user').val().trim()
+                    },
+                    success: function() {
+                        notice('修改成功，跳转至登陆页面');
+                        setTimeout(()=> {
+                            $(window).attr('location','/login');
+                        }, 1000);
+                    },
+                    error: function() {
+                        console.log('error');
+                    }
+                })
+            }
+        }
+        let code = '';
+        $('#user').on('blur', function() {
+            //检查用户名是否重复
+            $(this).siblings('i').hide();
+            if($(this).val().trim() != '')
+                $.ajax({
+                    type: "POST",
+                    url: "/checkUser",
+                    data: {
+                        "user": $(this).val().trim()
+                    },
+                    success: function(data) {
+                        if(data.isExist == false) {
+                            $('#user').siblings('.wrong').show();
+                            notice('用户名不存在');
+                        }
+                        else
+                            $('#user').siblings('.correct').show();
+                    },
+                    error: function() {
+                        console.log('error');
+                    }
+                })
+        })
+        $('#check').on('blur', function() {
+            $(this).siblings('i').hide();
+            if(code == $(this).val().trim())
+                $(this).siblings('.correct').show();
+            else
+                $(this).siblings('.wrong').show();
+
+        })
+        $('#send').on('click', function() {
+            if($('#mail').val().trim() == '') {
+                notice("请填写邮箱");
+            }
+            else {
+                $.ajax({
+                    type: "POST",
+                    url: "/send",
+                    data: {
+                        "mail": $('#mail').val().trim(),
+                        "user": $('#user').val().trim()
+                    },
+                    success: (data) => {
+                        if(data.ischecked == 0)
+                            notice('请输入正确的邮箱');
+                        else {
+                            code = data.code;
+                            $(this).attr('disabled', true);
+                            let num = 60;
+                            $(this).text(num + "后重新发送");
+                            $(this).css('cursor', 'default');
+                                let timeNo = setInterval(() => {
+                                    --num;
+                                    $(this).text(num + "后重新发送")
+                                    if(num == 0) {
+                                        $(this).text('发送验证码');
+                                        clearInterval(timeNo);
+                                    }
+                                }, 1000);
+                            }
+                    },
+                    error: function() {
+                    }
+                })
+            }
+        })
+        $('#next').on('click', function() {
+            next();
+        })
+        $('#next').on('keyup', function() {
+            if(e.keyCode == 13)
+                next();
+        })
+        
+        $('#npw').on('blur', function() {
+            $(this).siblings('i').hide();
+            if($(this).val().trim() != '') {
+                let reg = /^[\w!@#$%^&*]{6,16}$/;
+                if(reg.test($(this).val()))
+                    $(this).siblings('.correct').show();
+                else {
+                    notice('请输入正确的密码，6-16位')
+                    $(this).siblings('.wrong').show();
+                }
+            }
+        })
+        $('#confirm').on('blur', function() {
+            $(this).siblings('i').hide();
+            if($(this).val().trim() != $('#npw').val().trim()) {
+                notice('两次密码不一致');
+                $(this).siblings('.wrong').show();
+            }
+            else   
+                $(this).siblings('.correct').show();
+        })
+        $('#complete').on('click', function() {
+            com();
+        })
+    </script>
+</body>
+</html>

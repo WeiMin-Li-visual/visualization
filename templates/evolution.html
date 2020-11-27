@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+    <link rel="stylesheet" href="../static/layui/css/layui.css">
+    <meta charset="utf-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        #control {
+            left: 10px;
+            top: 300px;
+        }
+        #start {
+            left: 10px;
+            top: 350px;
+            display: none;
+            margin: 0;
+        }
+        #input {
+            display: none;
+        }
+        #add {
+            left: 10px;
+            top: 400px;
+            margin: 0;
+        }
+        button {
+            position: absolute;
+            z-index: 999;
+        }
+        #input {
+            position: relative;
+            z-index: 999;
+        }
+        #speedControl,
+        #edgeAdd,
+        #edgeremove,
+        #nodeRemove {
+            position: absolute;
+            z-index: 999;
+        }
+        .input {
+            top: 400px;
+            left: 100px;
+            width: 0;
+            display: none;
+        }
+        #edgeremove {
+            left: -35px;
+            top: 450px;
+        }
+        #speedControl {
+            left: -20px;
+            top: 350px;
+        }
+        #edgeAdd {
+            top: 400px;
+            left: -35px;
+        }
+        #submit {
+            top: 550px;
+            left: 10px;
+        }
+        p {
+            display: none;
+        }
+        #nodeRemove {
+            left: -22px;
+            top: 500px;
+        }
+    </style>
+</head>
+<body style="height: 100%; margin: 0">
+    <div id='input'>
+        <div id="speedControl" class="layui-form-item">
+            <label class="layui-form-label">速度控制</label>
+            <div class="layui-input-block">
+                <input id="speed" type="text" name="title" required  lay-verify="required" placeholder="以秒为单位" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+        
+        <div id="edgeAdd" class="layui-form-item">
+            <label class="layui-form-label">增加边</label>
+            <div class="layui-input-block">
+                <input id="addEdge" type="text" name="title" required  lay-verify="required" placeholder="请输入边" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+        <div id="edgeremove" class="layui-form-item">
+            <label class="layui-form-label">删除边</label>
+            <div class="layui-input-block">
+                <input id="removeEdge" type="text" name="title" required  lay-verify="required" placeholder="请输入边" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+        <div id="nodeRemove" class="layui-form-item">
+            <label class="layui-form-label">删除节点</label>
+            <div class="layui-input-block">
+                <input id="removeNode" type="text" name="title" required  lay-verify="required" placeholder="请输入节点" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+        <button id="submit" type="button" class="layui-btn layui-btn-normal" disabled>提交</button>
+    </div>
+    <p></p>
+    <button id="control" type="button" class="layui-btn layui-btn-normal">暂停社区演化</button>
+    <div id="container" style="height: 100%"></div>
+    <script type="text/javascript" src="/static/js/echarts.js"></script>
+    <script type="text/javascript" src="../static/layui/layui.js"></script>
+    <script type="text/javascript" src="../static/js/function.js"></script>
+    <script src="../static/js/jquery.js"></script>
+    <script src="../static/js/jquery.cookie.js"></script>
+    <script type="text/javascript">
+        'use strict';
+		(()=>{
+			if($.cookie('user') == undefined)
+				$(window).attr('location','/login');
+		})()
+        let dom = document.getElementById("container");
+        let myChart = echarts.init(dom);
+        let option;
+        let graph = {{ graph_data | tojson }};
+        graph = init_graph(graph,false); 
+        let edges = {{edges | tojson}};
+        edges = JSON.parse(edges)
+        let categories = [];
+        categories[0] = {
+            name: '噪声节点',
+            itemStyle: {
+                color: '#2f4554',
+                opacity: 1, //不透明度
+            }
+        }
+        let isAdd = false; // true：有边加入，false：没有边加入
+        let edge = []; // 记录所有要显示的边
+        let color = {0: '#2f4554', 1: '#009688', 2: 'green', 3: 'red', 4: 'blue', 5: 'yellow', 6: 'pink', 7: 'brown', 8: 'purple', 9: 'black', 10: '#ff7c7c', 11: '#32d3eb'};
+        let communityColor = {}; //记录每个社区的颜色
+        let deleteColor = {}; //记录已经用掉的社区颜色
+        let step = 0 // 记录时间片
+        let con = true; // 控制演化的开始和暂停，给control按钮使用
+        let addE = [];
+        let TimeOut = null;// 由于双击事件会触发点击事件，用于清除的定时器
+        option = initOption(graph);
+        myChart.setOption(option);
+        //corenode = JSON.parse(corenode);
+        //LocalClosedNeighbors = JSON.parse(LocalClosedNeighbors)
+        let text = "发生的变化："; 
+        let subtext = "";
+        for(let i = 1; i < Object.keys(color).length; ++i) {
+            // 设置所有可以显示的节点颜色
+                categories[i] = {
+                    name: '社区' + i,
+                    itemStyle: {
+                        color: color[i],
+                        opacity: 1, //不透明度
+                    },
+                    label: {
+                        fontSize: 20,
+                    },
+                };
+            }
+        myChart.setOption({
+                series: [
+                {
+                    categories: categories
+                }
+            ]
+        })
+        fun()
+    
+        $('#control').on('click', function() {
+            // 控制按钮事件，控制社区演化过程是否开始
+            if(con == true) {
+                con = false;
+                $(this).text('开始社区演化');
+                $('#input').fadeIn(500);
+            }
+            else {
+                con = true;
+                fun(); // 进行社区演化
+                $(this).text('暂停社区演化');
+                $('#input').fadeOut(500);
+                setTimeout(function(){
+                    $('.input').hide().css({width: 0});
+                },500)
+            }
+        })
+        function fun2(dom1, dom2, isAble) {
+            if(isAble) {
+                dom1.css('cursor', 'not-allowed');
+                dom2.css('cursor', 'not-allowed');
+            }
+            else {
+                dom1.css('cursor', 'text');
+                dom2.css('cursor', 'text');
+            }
+            dom1.attr('disabled', isAble);
+            dom2.attr('disabled', isAble);
+        }
+        $('#removeEdge').on('keyup', function(e){
+            if($(this).val().trim() != '')
+                // 因为一次只允许传一条数据，因此在输入栏有值时，禁用另外两个输入栏
+                fun2($('#addEdge'), $('#removeNode'), true);
+            else 
+                fun2($('#addEdge'), $('#removeNode'), false);
+            if(e.keyCode == 13 && $(this).val().trim() != '') {
+                fun2($('#addEdge'), $('#removeNode'), false);
+                // 回车键按下，触发函数
+                changeControl()
+            }
+        }).on('blur', function() {
+            // 输入框失去焦点时，使按钮生效，并将输入框的内容清空
+            if($(this).val().trim() != '')
+                $('#submit').attr('disabled', false);
+            else
+                $(this).val('');
+        })
+        $('#addEdge').on('keyup', function(e){
+            if($(this).val().trim() != '')
+                // 因为一次只允许传一条数据，因此在输入栏有值时，禁用另外两个输入栏
+                fun2($('#removeEdge'), $('#removeNode'), true);
+            else 
+                fun2($('#removeEdge'), $('#removeNode'), false);
+            if(e.keyCode == 13 && $(this).val() != '') {
+                fun2($('#removeEdge'), $('#removeNode'), false);
+                if($('#addEdge').val() != '')
+                    isAdd = true;
+                changeControl()
+            }
+        }).on('blur', function() {
+            if($(this).val().trim() != '') 
+                $('#submit').attr('disabled', false);
+            else
+                $(this).val('');
+        })
+        $('#removeNode').on('keyup', function(e){
+            if($(this).val().trim() != '')
+                // 因为一次只允许传一条数据，因此在输入栏有值时，禁用另外两个输入栏
+                fun2($('#addEdge'), $('#removeEdge'), true);
+            else 
+                fun2($('#addEdge'), $('#removeEdge'), false);
+            if(e.keyCode == 13 && $(this).val() != '') {
+                fun2($('#addEdge'), $('#removeEdge'), false);
+                let val = Number($(this).val());
+                changeControl();
+                graph['nodes'][val]['itemStyle']['opacity'] = 0; // 删去对应的节点
+            }
+        }).on('blur', function() {
+            if($(this).val().trim() != '')
+                $('#submit').attr('disabled', false);
+            else
+                $(this).val('');
+        })
+        $('#submit').on('click', function() {
+            // 提交按钮的事件
+            if($('#addEdge').val().trim() != '') // 判断增加边的输入框中是否有内容
+                isAdd = true;
+            if($('#removeNode').val().trim() != '') // 判断删除节点的输入框中是否有内容
+                graph['nodes'][Number($(this).val())]['itemStyle']['opacity'] = 0;
+            changeControl()
+        })
+        $('#speed').on('keyup', function(e){
+            if(e.keyCode == 13) {
+                changeControl()
+            }
+        }).on('blur', function() {
+            $('#submit').attr('disabled', false)
+        })
+        function changeControl() {
+            // 将输入的控制数据传给后端
+                $.ajax({
+                    type: "POST",
+                    url: "/communityEvolution",
+                    data: {
+                        "removeEdge": $('#removeEdge').val().trim(),
+                        "addEdge": $('#addEdge').val().trim(),
+                        "speed": $('#speed').val().trim(),
+                        "removeNode": $('#removeNode').val().trim()
+                    },
+                    success: function(data) {
+                        if(data.error)
+                        // 如果数据输入有误，则弹出提示框
+                            layui.use('layer', function(){
+                                let layer = layui.layer;
+                                layer.msg('请输入正确的信息');
+                            }); 
+                        else
+                            show(data); // 展示数据
+                    },
+                    error: function() {
+                        console.log('error');
+                    }
+                })
+                // 清空所有输入框的内容
+                $('input').val("");
+                $('input').attr('disabled', false);
+                $('input').css('cursor', 'text');
+                isAdd = false;
+        }
+        function fun() {
+            // 正常的社区演化展示过程中使用的函数
+            $.ajax({
+                type: "POST",
+                url: "/communityEvolution",
+                data: {
+                    "step": step // 告诉后端应该处理第几条数据
+                },
+                success: function(data) {
+                    show(data)
+                },
+                error: function() {
+                    console.log('error');
+                }
+            })
+            
+        }
+        myChart.on('dblclick', function(e){
+            // 处理图表的点击事件
+            clearTimeout(TimeOut);
+            if(e.dataType == 'edge') {
+                // 处理点击的是边的情况
+                //因为无法将数据直接传给ajax，所以先将数据放到隐藏的标签中，然后ajax直接从标签中获得数据
+                var ed = [e.data.source, e.data.target]
+                $.ajax({
+                    type: "POST",
+                    url: "/communityEvolution",
+                    data: {
+                        "removeEdge": ed[0] + ',' + ed[1],
+                    },
+                    success: function(data) {
+                        show(data)
+                    },
+                    error: function() {
+                        alert('error');
+                    }
+                })
+            }
+            if(e.dataType == 'node') {
+                // 点击的节点
+                let n = e.dataIndex
+                graph['nodes'][e.dataIndex]['itemStyle']['opacity'] = 0;
+                $.ajax({
+                    type: "POST",
+                    url: "/communityEvolution",
+                    data: {
+                        "removeNode": n,
+                    },
+                    success: function(data) {
+                        show(data)
+                    },
+                    error: function() {
+                        console.log('error');
+                    }
+                })
+            }
+        })
+        myChart.on('click', function(e) {
+            console.log(e.data.x, e.data.y);
+            if(e.dataType == 'node') {
+                if(TimeOut != null)
+                    clearTimeout(TimeOut);
+                TimeOut = setTimeout(function() {
+                    addE.push(e.dataIndex);
+                    if(addE.length == 2) {
+                        isAdd = true;
+                        $('p').text(''+Number(addE[0])+','+Number(addE[1]));
+                        $.ajax({
+                            type: "POST",
+                            url: "/communityEvolution",
+                            data: {
+                                "addEdge": $('p').text(),
+                            },
+                            success: function(data) {
+                                show(data)
+                            },
+                            error: function() {
+                                alert('error');
+                            }
+                        })
+                    addE = [];
+                    isAdd = false;
+                }
+                }, 200)
+            }
+        })
+        $('#container').on('click', function(e) {
+            console.log(e.offsetX, e.offsetY);
+            /*
+            let d = {
+                'attributes': {'modularity_class': 0},
+                'id': graph.nodes.length,
+                'category': 0,
+                'itemStyle': {'opacity': 1},
+                'label': {'normal': {'show': 'false'}},
+                'name': graph.nodes.length,
+                'symbolSize': 35,
+                'value': 111,
+                'x': (e.offsetX-800)/353,
+                'y': (e.offsetY-378)
+            }
+            graph['nodes'].push(d);
+            update_show(text,subtext,myChart);
+            */
+        })
+        function show(data) {
+            if(data.error == 'lengthOver')
+                return 114514;
+            edge.forEach(function(e) {
+                //将所有边的属性回复正常
+                e.lineStyle.width = 1;
+                e.lineStyle.color = 'black';
+            })
+            if(data.isRemoveNode == 1){
+                // 处理节点删除的情况
+                subtext = "节点删除";
+                data.currentEdge.forEach((el) => {
+                    // 遍历删除的边
+                    let num = data.edgeNum[el[0]][el[1]] // 获得边的序号
+                    edge.some(function(element) {
+                        // 查找相应的序号，找到之后将边的透明度置为0
+                        if(Number(element.id) == num) {
+                            element['lineStyle']['opacity'] = 0;
+                            return true;
+                        }
+                    })
+                })
+                let currentNodeCommunity = data.changedCommunity; // 处理社区的变化
+                for(let nodeCommunity in currentNodeCommunity) {
+                    let communityIndex = currentNodeCommunity[nodeCommunity]
+                    if(communityIndex != -1 && !communityColor.hasOwnProperty(communityIndex)) {
+                        let Index = Number(Object.keys(color)[1]);
+                        communityColor[communityIndex] = Index;
+                        deleteColor[Index] = color[Index];
+                        delete color[Index];
+                    }
+                    if(communityIndex == -1)
+                        graph['nodes'][nodeCommunity].category = 0;
+                    else
+                        graph['nodes'][nodeCommunity].category = communityColor[communityIndex];
+                }
+            }
+            else {
+                // 处理其他情况
+                let currentEdge = [data.currentEdge[0], data.currentEdge[1]]; // 获得发生变化的边
+                let sign = true;
+                if(sign && currentEdge[0] == currentEdge[1]) {
+                    //此时节点出现 
+                    let is = 0;
+                    subtext = "节点" + currentEdge[0] + "出现";
+                    graph['nodes'][currentEdge[0]]['itemStyle']['opacity'] = 1;
+                    graph['nodes'][currentEdge[0]].category = 0;
+                    sign = false;
+                }
+                if(sign) {
+                    // 此时边发生变化
+                    let delCommunity = data.delCommunity;
+                    for(let i = 0; i < delCommunity.length; ++i) {
+                        let idx = delCommunity[i];
+                        delete communityColor[idx];
+                        color[idx] = deleteColor[idx];
+                        delete deleteColor[idx]; 
+                    }
+                    if(data.isRemoveEdge == 1) {
+                        subtext = "边 (" + currentEdge[0] + "," +currentEdge[1] + ") 删除"; //设置副标题
+                        let num = data.edgeNum[currentEdge[0]][currentEdge[1]]
+                        edge.some(function(element) {
+                        // 查找相应的序号，找到之后将边的透明度置为0
+                            if(Number(element.id) == num) {
+                                element['lineStyle']['opacity'] = 0;
+                                return true;
+                            }
+                        })
+                        let currentNodeCommunity = data.changedCommunity;
+                        for(let nodeCommunity in currentNodeCommunity) {
+                            let communityIndex = currentNodeCommunity[nodeCommunity]
+                            if(communityIndex != -1 && !communityColor.hasOwnProperty(communityIndex)) {
+                                let Index = Number(Object.keys(color)[1]);
+                                communityColor[communityIndex] = Index;
+                                deleteColor[Index] = color[Index];
+                                delete color[Index];
+                            }
+                            if(communityIndex == -1)
+                                graph['nodes'][nodeCommunity].category = 0;
+                            else
+                                graph['nodes'][nodeCommunity].category = communityColor[communityIndex];
+                        }
+                    }
+                    else {
+                        if(!isAdd)
+                            ++step; // 如果不是手动加入的边
+                        subtext = "边 (" + currentEdge[0] + "," +currentEdge[1] + ") 出现";
+                        let currentNodeCommunity = data.changedCommunity;
+                        let num = data.edgeNum[currentEdge[0]][currentEdge[1]]
+                        data.graph_edge[num].lineStyle.width = 6;
+                        data.graph_edge[num].lineStyle.color = 'blue';
+                        //console.log(graph['links'][num]['source'],graph['links'][num]['target'],'-----',currentEdge[0],currentEdge[1]);
+                        edge.some(function(element) {
+                        // 查找相应的序号，找到之后将边的透明度置为0
+                            if(Number(element.id) == num) {
+                                element['lineStyle']['opacity'] = 0.5;
+                                return true;
+                            }
+                        })
+                        edge.push(data.graph_edge[num])
+                        graph['nodes'][currentEdge[0]]['itemStyle']['opacity'] = 1;
+                        graph['nodes'][currentEdge[1]]['itemStyle']['opacity'] = 1;
+                        for(let nodeCommunity in currentNodeCommunity) {
+                            let communityIndex = currentNodeCommunity[nodeCommunity]
+                            if(!communityColor.hasOwnProperty(communityIndex)) {
+                                let Index = Number(Object.keys(color)[1]);
+                                communityColor[communityIndex] = Index;
+                                deleteColor[Index] = color[Index];
+                                delete color[Index];
+                            }
+                            graph['nodes'][nodeCommunity].category = communityColor[communityIndex];
+                        }
+                    }
+                }
+                graph['links'] = edge;
+            }
+            if(data.isContinue == 0) {
+                text = "社区演化完毕";
+                subtext = ""
+                $('#control').text('社区演化控制');
+            }
+            update_show(text,subtext,myChart);
+            if(con && data.isContinue == 1) 
+                fun();
+            
+        }
+        function update_show(text,subtext,myChart) {
+            myChart.setOption({
+                title:{
+                    text:text,
+                    subtext: subtext
+                },
+                series:[{
+                    data:graph.nodes,
+                    links:graph.links
+                }]
+            })
+        }
+
+        function initOption(graph){
+    let option;
+
+    //设置要生成的图的相关属性
+    option = {
+        title: {
+            text: '',
+            subtext: '',
+            top: 'top',
+            left: 'left'
+        },
+        tooltip: {},
+        /*
+        legend: [{
+            // selectedMode: 'single',
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }],*/
+        animationDuration: 1500,
+        animationEasingUpdate: 'quinticInOut',
+        series: [
+            {
+                name: 'Les Miserables',
+                type: 'graph',
+                layout: 'none',
+                //下面三项分别设置节点数据，边数据，种类数据
+                data: graph.nodes,
+                links: graph.links,
+                categories: [],
+                roam: true,
+                animation: false,
+                focusNodeAdjacency: true,
+                force: {
+                    layoutAnimation: false
+                },
+                itemStyle: {
+                    normal: {
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    }
+                },
+                label: {
+                    position: 'right',
+                    formatter: '{b}'
+                },
+                lineStyle: {
+                    color: 'rgba(0, 0, 0, 0.7)',
+                    curveness: 0.01
+                },
+                emphasis: {
+                    lineStyle: {
+                        width: 10
+                    }
+                },
+                force: {
+                    repulsion: 270
+                }
+            }
+        ]
+    };
+    return option;
+}
+    </script>
+</body>
+</html>

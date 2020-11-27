@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../static/layui/css/layui.css">
+    <script type="text/javascript" src="../static/layui/layui.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        li {
+            list-style: none;
+        }
+        #abc {
+            width: 400px;
+            height: 400px;
+            border: 1px solid black;
+            margin: 100px auto;
+        }
+        #title {
+            height: 100px;
+        }
+        #title p {
+            font-size: 20px;
+            text-align: center;
+            line-height: 100px;
+            font-weight: 700;
+        }
+        #login,
+        #register,
+        #forget {
+            width: 60%;
+            display: block;
+            margin: 10px auto;
+            border-radius: 10px;
+        }
+        #save {
+            padding-left: 200px;
+        }
+        #save span {
+            font-size: 16px;
+        }
+        #check {
+            position: relative;
+            top: 1px;
+        }
+    </style>
+</head>
+<body>
+    <!--
+    body {
+        background: url("cover.jpg") no-repeat;
+    }-->
+    <div id='abc'>
+        <ul>
+            <li id='title'>
+                <p>社区发现及演化分析平台</p>
+            </li>
+            <li id='input'>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">用户名</label>
+                    <div class="layui-input-block">
+                      <input type="text" required  lay-verify="required" placeholder="请输入用户名" autocomplete="off" class="layui-input" style="width: 66%;" id="user">
+                    </div>
+                  </div>
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">密码</label>
+                    <div class="layui-input-inline">
+                      <input type="password" required lay-verify="required" oncopy="return false" placeholder="请输入密码" autocomplete="off" class="layui-input" id="password">
+                    </div>
+                  </div>
+                <div id="save">
+                    <input type="checkbox" id="check">
+                    <span>保持登陆状态7天</span>
+                </div>
+            </li>
+            <li id='function'>
+                <button class="layui-btn layui-btn-normal" id="login">登陆</button>
+                <button class="layui-btn layui-btn-normal" id="register">注册</button>
+                <button class="layui-btn layui-btn-normal" id="forget">忘记密码</button>
+
+            </li>
+        </ul>
+    </div>
+    <script src="../static/js/jquery.js"></script>
+    <script src="../static/js/jquery.cookie.js"></script>
+    <script>
+        'use strict';
+        (()=>{
+            let cookie = $.cookie('user');
+            if(cookie != undefined && cookie != '')
+                $(window).attr('location','/');
+        })()
+        function notice(info) {
+            layui.use('layer', function(){
+                    let layer = layui.layer;
+                    layer.msg(info);
+                }); 
+        }
+        function login() {
+            if($('#user').val().trim()!=''&&$('#password').val().trim()!='') 
+                $.ajax({
+                        type: "POST",
+                        url: "/login",
+                        data: {
+                            "user": $('#user').val().trim(),
+                            "password": $('#password').val().trim(),
+                        },
+                        success: function(data) {
+                            let check = JSON.parse(data.check);
+                            if(check['userInfo'] == -1)
+                                notice('用户未注册，请进行注册');
+                            else if(check['userInfo'] == 1)
+                                notice('邮箱未验证，请进行验证');
+                            else {
+                                if(check['passwordInfo'] == 0)
+                                    notice('密码错误');
+                                if(check['passwordInfo'] == 1) {
+                                    if($('#check').prop('checked'))
+                                        $.cookie('user', $('#user').val().trim(), {expires: 7})
+                                    else
+                                        $.cookie('user', $('#user').val().trim())
+                                    $(window).attr('location','/');
+                                }
+                            }
+                        },
+                        error: function() {
+                            console.log('error');
+                        }
+                    })
+        }
+        $('input').on('keyup', function(e) {
+            if(e.keyCode == 13 )
+                login();
+        })
+        $('#login').on('click', () => {
+            login();
+        })
+        $('#register').on('click', function() {
+            $(window).attr('location','/register');
+        })
+        $('#forget').on('click', function() {
+            $(window).attr('location','/forget');
+        })
+    </script>
+</body>
+</html>
