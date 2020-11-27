@@ -5,6 +5,12 @@
 	  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 	  <title>社交网络可视化</title>
 	  <link rel="stylesheet" href="../static/layui/css/layui.css">
+	  <script type="text/javascript" src="../static/js/function.js"></script>
+	  <style>
+		  .layui-layout-right {
+			  right: 150px;
+		  }
+	  </style>
 	</head>
 	<body class="layui-layout-body">
 		<div class="layui-layout layui-layout-admin">
@@ -18,9 +24,8 @@
 		        <a href="javascript:;">
 		          <i class="layui-icon layui-icon-username" style="font-size: 30px;"></i>  用户
 		        </a>
-		        <dl class="layui-nav-child">
-		          <dd><a href="">基本资料</a></dd>
-		          <dd><a href="">退出</a></dd>
+		        <dl class="layui-nav-child" id = "userdata">
+		          <dd><a id="loginOut" style="cursor: pointer">退出</a></dd>
 		        </dl>
 		      </li>
 		    </ul>
@@ -43,7 +48,7 @@
 				  </dl>
 		        </li>
 		        <li class="layui-nav-item">
-		          <a href="javascript:;">社区划分</a>
+		          <a href="javascript:;">静态社区划分</a>
 		          <dl class="layui-nav-child">
 					<a href="javascript:;">基于核心节点的社区发现及演化</a>
 					<dl class="layui-nav-child">
@@ -53,7 +58,10 @@
                     <dd><a onclick="skipto('StaticMOACD')" style="cursor:pointer">基于多目标优化的社区发现</a></dd>
                     <dd><a onclick="skipto('dyanmicMOACD')" style="cursor:pointer">多目标优化动态社区演化</a></dd>
 		          </dl>
-		        </li>
+				</li>
+				<li class="layui-nav-item">
+					<a onclick="skipto('communityEvolution')" style="cursor:pointer">动态社区划分</a>
+				</li>
 		      </ul>
 		    </div>
 		  </div>
@@ -70,8 +78,38 @@
 		  </div>
 		</div>
 		<script src="../static/layui/layui.js"></script>
+		<script src="../static/js/jquery.js"></script>
+		<script src="../static/js/jquery.cookie.js"></script>
 		<script>
+		(()=>{
+			if($.cookie('user') == undefined)
+				$(window).attr('location','/login');
+			else {
+				let user = $.cookie('user');
+				$.ajax({
+					type: "POST",
+					url: "/fun",
+					data: {
+						"userName": user
+					},
+					success: function(data) {
+						let $data = $('<dd><a style="cursor: pointer">用户名：'+data.user[0]+'</a></dd>'
+									+ '<dd><a style="cursor: pointer">单位：'+ data.user[4] + '</a></dd>'
+									+ '<dd><a style="cursor: pointer">邮箱：'+ data.user[3] + '</a></dd>' 
+									+ '<dd><a style="cursor: pointer">联系电话：'+ data.user[2] + '</a></dd>')
+						$('#userdata').prepend($data);
+					},
+					error: function() {
+						console.log('error');
+					}
+				})
+			}
+		})()
 		//JavaScript代码区域
+		$('#loginOut').on('click', function() {
+			$.cookie('user', ''); 
+			$(window).attr('location','/login');
+		})
 		layui.use(['element'], function(){
 		  var element = layui.element;
 

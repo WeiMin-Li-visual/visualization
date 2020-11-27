@@ -3,7 +3,6 @@ init_graph = function(graph, flag=true){
 
     //给节点的属性进行操作
     graph.nodes.forEach(function (node) {
-        node.itemStyle = null;
         node.symbolSize = 15;
         // node.value = node.symbolSize;
         if(flag == true)
@@ -15,7 +14,7 @@ init_graph = function(graph, flag=true){
 
 init_option = function(graph){
     var option;
-    var categories = [];
+    var categories = [];//设置节点属性
     categories[0] = {
             name: '未激活节点',
             itemStyle: {
@@ -71,11 +70,11 @@ init_option = function(graph){
                         shadowColor: 'rgba(0, 0, 0, 0.3)'
                     }
                 },
-                label: {
+                label: {//设置节点标签
                     position: 'right',
                     formatter: '{b}'
                 },
-                lineStyle: {
+                lineStyle: {//边的种类
                     color: 'rgba(0, 0, 0, 0.7)',
                     curveness: 0.3
                 },
@@ -91,4 +90,27 @@ init_option = function(graph){
         ]
     };
     return option;
+}
+function getUrlParam(name) {
+            var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"); //构造一个含有目标参数的正则表达式对象
+            var r = window.location.search.substr(1).match(reg);  //匹配目标参数
+            if (r != null) return unescape(r[2]);
+            return null; //返回参数值
+        }
+redirection = function()  {
+    let userName = getUrlParam("userName");
+    $.ajax({
+        type: "POST",
+        url: "/fun",
+        data: {
+            "userName": userName
+        },
+        success: function(data) {
+            if(data.userInfo == 1)
+                $(window).attr('location','/login');
+        },
+        error: function() {
+            console.log('error');
+        }
+    })
 }

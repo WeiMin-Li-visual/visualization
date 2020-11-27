@@ -1,10 +1,13 @@
 # -*- coding:utf-8 -*-
-from flask import Flask, render_template, request, flash
+from flask import Flask, render_template, request, flash, jsonify
 import json
 import random
 import copy
 from flask_socketio import SocketIO
 from threading import Lock
+from flask_mail import Mail, Message
+import pymysql
+
 thread_lock = Lock()
 
 
@@ -14,7 +17,12 @@ thread_lock = Lock()
 # 节点布局改进
 # author: 邓志斌
 # date: 2020年6月2日19:55:52
-def init_network(data_path):
+def init_network(data_path, opacity=1):
+    """
+    :param data_path: 数据所在路径
+    :param opacity: 透明度，主要控制是否显示数据
+    :return: 所有边的集合，节点数， 图数据
+    """
     import networkx as nx
 
     # 读入数据
@@ -42,15 +50,15 @@ def init_network(data_path):
     #     node_dict[nodes_list[i]] = i
 
     # 记录每个节点的位置信息
-    pos = nx.drawing.spring_layout(G)
+    pos = nx.drawing.spring_layout(G, iterations=100, k=0.5)
     node_coordinate = []
     for i in range(node_num):
         node_coordinate.append([])
     for i, j in pos.items():
         # node_coordinate[node_dict[i]].append(float(j[0]))
         # node_coordinate[node_dict[i]].append(float(j[1]))
-        node_coordinate[i-1].append(float(j[0]))
-        node_coordinate[i-1].append(float(j[1]))
+        node_coordinate[i - 1].append(float(j[0]))
+        node_coordinate[i - 1].append(float(j[1]))
 
     # 设置传给前端的节点数据边数据的json串
     graph_data_json = {}
@@ -73,7 +81,7 @@ def init_network(data_path):
             'attributes': {'modularity_class': 0},
             'id': str(node),
             'category': 0,
-            'itemStyle': '',
+            'itemStyle': {'opacity': opacity},
             'label': {'normal': {'show': 'false'}},
             'name': str(node),
             'symbolSize': 35,
@@ -367,6 +375,7 @@ def set_influence_degree(seed, m, edgeNum):  # 胡莎莎
                 edge_records.append(edgeNum[node][j])
     return active_records, edge_records
 
+
 def dyanmicMOACD_thread():
     """
     基于社交网络属性的多目标优化动态社区划分
@@ -586,7 +595,7 @@ def dyanmicMOACD_thread():
         pop_N = N  # 群体个数
         network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path_e)
         socketio.emit('server_response',
-                      {'data': [graph_data_synfix, 0],'count':0},
+                      {'data': [graph_data_synfix, 0], 'count': 0},
                       namespace='/dyanmicMOACD')
 
         G = nx.Graph()  # 图数据
@@ -602,7 +611,7 @@ def dyanmicMOACD_thread():
         pop_ns, pop_partition, pop_value = init_community(G, B, pop_N)
 
         # 求解帕累托最优解
-        rep_value= pareto(pop_value)
+        rep_value = pareto(pop_value)
 
         rep_ns = []  # 帕累托最优解的节点邻接表示集合
         rep_partition = []  # 帕累托最优解的分区方案集合
@@ -844,7 +853,7 @@ def dyanmicMOACD_thread():
         best_partition = rep_partition[best_location]
         return best_partition
 
-    pop_N=50
+    pop_N = 50
     T = 11  # 总时间步 一共T-1个时间步
 
     file_qian = "static/data/synfix/z_3/synfix_3.t"  # 文件名前缀
@@ -852,10 +861,10 @@ def dyanmicMOACD_thread():
     file_bian = ".edges"  # 后缀--边
 
     # 保存每一时间片的社区划分结果
-    all_best_components=[]
+    all_best_components = []
 
     # 保存所有时间片的网络结构
-    all_graph_data=[]
+    all_graph_data = []
 
     # 第一个时间步
     # result_pre:最优社区划分
@@ -865,7 +874,7 @@ def dyanmicMOACD_thread():
     G_pre_nn = G_pre.number_of_nodes()  # 前一个时间片图的节点个数
 
     socketio.emit('server_response',
-                  {'data': [graph_data, components_pre],'count':1},
+                  {'data': [graph_data, components_pre], 'count': 1},
                   namespace='/dyanmicMOACD')
 
     all_graph_data.append(graph_data)
@@ -873,7 +882,7 @@ def dyanmicMOACD_thread():
 
     # 之后的时间步
     for t in range(2, T):
-        count=t
+        count = t
         if t < 10:
             t = "0" + str(t)
 
@@ -905,8 +914,9 @@ def dyanmicMOACD_thread():
             rep_partition.append(pop_partition[j])
 
         # 最好的结果的分区
-        best_partition = iteration(G, pop_ns, pop_value, rep_ns, rep_value, rep_partition, components_pre, G_pre_nn, G_nn, com_nn,
-                         m2, B, pop_N)
+        best_partition = iteration(G, pop_ns, pop_value, rep_ns, rep_value, rep_partition, components_pre, G_pre_nn,
+                                   G_nn, com_nn,
+                                   m2, B, pop_N)
 
         # 这一时间步的图为下一时间步的图比较的对象，这一时间步的分区结果设置为下一个前一个分区结果
         G_pre = G
@@ -914,15 +924,14 @@ def dyanmicMOACD_thread():
         components_pre = best_partition
         all_best_components.append(components_pre)
 
-
         socketio.emit('server_response',
-                      {'data': [graph_data_synfix, components_pre],'count':count},
+                      {'data': [graph_data_synfix, components_pre], 'count': count},
                       namespace='/dyanmicMOACD')
 
     # 最后接收一次空数据，前端显示“演化结束”
-    socketio.sleep(1) # 休眠1秒
+    socketio.sleep(1)  # 休眠1秒
     socketio.emit('server_response',
-                  {'data': [0, 0],'count':0},
+                  {'data': [0, 0], 'count': 0},
                   namespace='/dyanmicMOACD')
 
 
@@ -931,10 +940,126 @@ thread = None
 app = Flask(__name__)
 app.secret_key = 'lisenzzz'
 socketio = SocketIO(app, async_mode=async_mode)
-path='static/data/synfix/z_3/synfix_3.t01.edges'
-path1='static/data/Wiki.txt'
-networkTemp, number_of_nodes, graph_data = init_network('static/data/Wiki.txt')
+path = 'static/data/synfix/z_3/synfix_3.t01.edges'
+path1 = 'static/data/Wiki.txt'
+networkTemp, number_of_nodes, graph_data = init_network(path1)
 network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path)
+connection = pymysql.connect(host='localhost',  # host属性
+                             user='root',  # 用户名
+                             password='159357asd!',  # 此处填登录数据库的密码
+                             db='mysql'  # 数据库名
+                             )
+cur = connection.cursor()
+cur.execute('use logindata')
+app.config['MAIL_SERVER'] = 'smtp.qq.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = '719723236@qq.com'
+app.config['MAIL_PASSWORD'] = 'tlwiuoueauapbefb'
+mail = Mail(app)
+
+
+@app.route('/checkUser', methods=["POST"])
+def checkUser():
+    if request.method == 'POST':
+        cur.execute('use logindata')
+        requestArgs = request.values
+        user = requestArgs.get('user')
+        cur.execute("select * from udata where user = " + "'" + user + "'")
+        result = cur.fetchone()
+        if result is None:
+            return jsonify({'isExist': False})
+        elif result is not None:
+            return jsonify({'isExist': True})
+
+
+@app.route('/forget', methods=["GET", "POST"])
+def forget():
+    if request.method == 'GET':
+        return render_template('forget.html')
+    elif request.method == 'POST':
+        requestArgs = request.values
+        new = requestArgs.get('password')
+        user = requestArgs.get('user')
+        cur.execute("update udata set password=MD5('" + new + "') where user='" + user + "'")
+        connection.commit()
+        return jsonify({'isSuccess': 1})
+
+
+@app.route('/register', methods=["GET", "POST"])
+def register():
+    if request.method == 'GET':
+        return render_template('register.html')
+    elif request.method == 'POST':
+        requestArgs = request.values
+        user = requestArgs.get('user')
+        password = requestArgs.get('password')
+        number = requestArgs.get('number')
+        unit = requestArgs.get('unit')
+        mail = requestArgs.get('mail')
+        str = "'" + user + "'" + ",'" + number + "'," + "'" + mail + "'" + "," \
+              + "'" + unit + "'" + "," + "MD5('" + password + "')"
+        cur.execute('insert into udata (user,number,mail,unit,password) values (' + str + ")")
+        connection.commit()
+        return jsonify({'isSuccess': 1})
+
+
+@app.route('/send', methods=["POST"])
+def send():
+    requestArgs = request.values
+    dirMail = requestArgs.get('mail')
+    user = requestArgs.get('user')
+    if user is not None:
+        cur.execute("select * from udata where user = " + "'" + user + "'")
+        result = cur.fetchone()
+        if result[3] != dirMail:
+            return jsonify({'ischecked': 0})
+    verificationList = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+                        'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 's', 't', 'x', 'y', 'z', 'A', 'B', 'C', 'D',
+                        'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'S', 'T', 'X', 'Y', 'Z']
+    veriCode = ''
+    for i in range(4):
+        veriCode += verificationList[random.randint(0, len(verificationList) - 1)]
+    msg = Message("可视化平台验证码", sender="719723236@qq.com", recipients=[dirMail])
+    msg.body = veriCode
+    mail.send(msg)
+    return jsonify({'code': veriCode, 'ischecked': 1})
+
+
+@app.route('/login', methods=["GET", "POST"])
+def login():
+    if request.method == 'GET':
+        cur.execute('use logindata')
+        return render_template('login.html')
+    elif request.method == 'POST':
+        requestArgs = request.values
+        user = requestArgs.get('user')
+        password = requestArgs.get('password')
+        cur.execute("select * from udata where user = " + "'" + user + "'")
+        result = cur.fetchone()  # 没找到为None, 否则返回对应的元组
+        cur.execute("select md5('" + password + "')")
+        p = cur.fetchone()  # 返回的是三元组，p[0]是需要的值
+        check = {'userInfo': -1, 'passwordInfo': -1}
+        if result is None:
+            check['userInfo'] = -1
+        elif result is not None:
+            check['userInfo'] = 0
+            if p[0] == result[1]:
+                check['passwordInfo'] = 1
+            elif p[0] != result[1]:
+                check['passwordInfo'] = 0
+        check = json.dumps(check)
+        return jsonify({'check': check})
+
+
+@app.route('/fun', methods=["POST"])
+def fun():
+    requestArgs = request.values
+    user = requestArgs.get('userName')
+    cur.execute("select * from udata where user = " + "'" + user + "'")
+    result = cur.fetchone()
+    return jsonify({'user': result})
+
 
 @app.route('/')
 def hello_world():
@@ -1817,6 +1942,159 @@ def ECDR_Evolution():
                            S=S, timeCommunityEdge=timeCommunityEdge, timeEdgeNum=timeEdgeNum)
 
 
+@app.route('/communityEvolution', methods=["GET", "POST"])
+def Evolution():
+    from tiles import TILES
+    import time
+
+    def check(info):
+        # 检测前端传来的数据是否出错
+        str = ""
+        count = 0
+        for c in info:
+            # 将数据中所有的中文逗号转换成英文逗号，如果逗号超过两个或是出现非数字字符，返回错误
+            if c.isdigit():
+                str += c
+            elif c == ',' or c == '，':
+                str += ','
+                count += 1
+                if count > 1:
+                    return [], True
+            else:
+                return [], True
+        e = str.strip().split(',')
+        if len(e) != 2:
+            return [], True
+        for i in e:
+            if int(i) not in eNode:
+                return [], True
+        return e, False
+
+    if request.method == 'GET':
+        # 在开始的时候设置相关的属性
+        global eNode
+        global t
+        global isContinue
+        global s
+        global eNum
+        global networkData
+        global graph_edge
+        path = r"static/data/reptilia-tortoise-network-cs.edges"  # 以' '分隔
+        networkData, node_num, graph_data = init_network(path, opacity=0)
+        graph_data = json.loads(graph_data)
+        graph_edge = graph_data['links']
+        graph_data['links'] = []
+        graph_data = json.dumps(graph_data)
+        isContinue = 1
+        s = 0
+        t = TILES()
+        eNode = []
+        eNum = [[0 for _ in range(node_num)] for _ in range(node_num)]
+        for i in range(len(graph_edge)):
+            source = int(graph_edge[i]['source'])
+            target = int(graph_edge[i]['target'])
+            eNum[source][target] = i
+            eNum[target][source] = i
+        edges = json.dumps(networkData)
+        return render_template('Evolution.html', graph_data=graph_data, edges=edges)
+    elif request.method == 'POST':
+        deleteCommunity = []  # 记录被删除的社区
+        requestArgs = request.values
+        step = requestArgs.get('step')
+        speed = requestArgs.get('speed')
+        if speed is not None and speed != "":
+            s = float(speed)
+        if step is not None:
+            step = int(step)
+        addEdge = requestArgs.get('addEdge')
+        removeEdge = requestArgs.get('removeEdge')
+        removeNode = requestArgs.get('removeNode')
+        removeAllEdge = []
+        typ = 1  # 设置处理的数据类型，为2使处理边删除的情况，为1时处理边增加的情况
+        isRemoveEdge = 0  # 是否是边删除的情况
+        isRemoveNode = 0
+        if removeEdge is None and removeEdge != '' and addEdge is None and addEdge != '' and removeNode is None and removeNode != '':
+            if step < len(networkTemp):
+                currentEdge = [networkTemp[step][0] - 1, networkTemp[step][1] - 1]  # 获得边
+            else:
+                return jsonify({'error': 'lengthOver'})
+        elif addEdge != '' and addEdge is not None:
+            temp, error = check(addEdge)  # 检测数据是否正确
+            if error:
+                return jsonify({'error': error})
+            currentEdge = [int(temp[0]), int(temp[1])]
+            temp = [int(temp[0]) + 1, int(temp[1]) + 1]
+            temp_ = [temp[1], temp[0]]
+            if temp in networkTemp:
+                # 如果出现重复的情况，则删除这些边
+                networkTemp.remove(temp)
+            if temp_ in networkTemp:
+                # 如果出现重复的情况，则删除这些边
+                networkTemp.remove(temp_)
+            if edgeNum[currentEdge[0]][currentEdge[1]] == 0:
+                link_id = len(graph_edge)
+                graph_edge.append({
+                    'id': str(link_id),
+                    'lineStyle': {'normal': {}},
+                    'name': 'null',
+                    'source': str(currentEdge[0]),
+                    'target': str(currentEdge[1])
+                })
+                edgeNum[currentEdge[0]][currentEdge[1]] = link_id
+        elif removeEdge != '' and removeEdge is not None:
+            temp, error = check(removeEdge)
+            if error:
+                return jsonify({'error': error})
+            isRemoveEdge = 1
+            typ = 2
+            currentEdge = [int(temp[0]), int(temp[1])]
+            temp = [int(temp[0]) + 1, int(temp[1]) + 1]
+            temp_ = [temp[1], temp[0]]
+            while temp in networkTemp:
+                networkTemp.remove(temp)
+            while temp_ in networkTemp:
+                networkTemp.remove(temp_)
+        elif removeNode != '' and removeNode is not None:
+            for i in removeNode:
+                if not i.isdigit():
+                    return jsonify({'error': True})
+            removeNode = int(removeNode)
+            if removeNode not in eNode:
+                return jsonify({'error': True})
+            typ = 2
+            for node in t.g.neighbors(removeNode):
+                removeAllEdge.append([removeNode, node])
+        if removeNode != '' and removeNode is not None:
+            currentEdge = removeAllEdge
+            isRemoveNode = 1
+            for e in removeAllEdge:
+                t.execute(e, t=typ)
+            timeChangedNodeCommunity = t.change
+            deleteCommunity = t.deleteCommunity
+            t.change = {}
+            t.deleteCommunity = []
+        elif currentEdge[0] in eNode and currentEdge[1] in eNode:
+            t.execute(currentEdge, t=typ)
+            timeChangedNodeCommunity = t.change
+            deleteCommunity = t.deleteCommunity
+            t.change = {}
+            t.deleteCommunity = []
+        elif currentEdge[0] not in eNode:
+            eNode.append(currentEdge[0])
+            currentEdge = [currentEdge[0], currentEdge[0]]
+            timeChangedNodeCommunity = {}
+        elif currentEdge[1] not in eNode:
+            eNode.append(currentEdge[1])
+            currentEdge = [currentEdge[1], currentEdge[1]]
+            timeChangedNodeCommunity = {}
+        if step == len(networkTemp) - 1:
+            isContinue = 0
+        time.sleep(s)
+        return jsonify({'changedCommunity': timeChangedNodeCommunity, 'delCommunity': deleteCommunity
+                           , 'edgeNum': eNum, 'graph_edge': graph_edge, 'isContinue': isContinue
+                           , 'currentEdge': currentEdge, 'isRemoveEdge': isRemoveEdge, 'isRemoveNode': isRemoveNode})
+
+
 @app.route('/StaticMOACD')
 def StaticMOACD():
     """
@@ -2046,27 +2324,27 @@ def StaticMOACD():
     rep_par = json.dumps(rep_partition)  # 传给前端的帕累托最优划分方案
 
     # 迭代更新解决方案
-    genmax = 20             # 最大迭代次数
-    gen = 0                 # 当前迭代次数
-    best_gen = []           # 迭代过程中最好的值
-    gen_equal = 0           # 多目标值相等的次数
-    updated_par = []        # 记录每次迭代中被选中更新的分区方案
-    node_update_rec = []    # 每次迭代对应方案的每个节点的更新记录
+    genmax = 20  # 最大迭代次数
+    gen = 0  # 当前迭代次数
+    best_gen = []  # 迭代过程中最好的值
+    gen_equal = 0  # 多目标值相等的次数
+    updated_par = []  # 记录每次迭代中被选中更新的分区方案
+    node_update_rec = []  # 每次迭代对应方案的每个节点的更新记录
     while gen < genmax and gen_equal < 10:
         npop_ns = copy.deepcopy(pop_ns)  # 深拷贝
-        npop_good_value = []      # 更新后较好的多目标值
+        npop_good_value = []  # 更新后较好的多目标值
         npop_good_partition = []  # 更新后较好的划分方案
-        npop_good_ns = []         # 更新后较好的节点邻接表示
-        nrep_value = []           # 新的帕累托最优多目标值
-        nrep_ns = []              # 新的帕累托节点邻接表示
-        nrep_partition = []       # 新的帕累托社区划分方案
-        method = 1                # 更新策略
-        update_num = 10          # 每次迭代的更新次数
-        record_gen = []           # 第gen次迭代的所有节点更新记录
-        up_par_gen = []           # 第gen次迭代中被选中更新的划分方案
+        npop_good_ns = []  # 更新后较好的节点邻接表示
+        nrep_value = []  # 新的帕累托最优多目标值
+        nrep_ns = []  # 新的帕累托节点邻接表示
+        nrep_partition = []  # 新的帕累托社区划分方案
+        method = 1  # 更新策略
+        update_num = 10  # 每次迭代的更新次数
+        record_gen = []  # 第gen次迭代的所有节点更新记录
+        up_par_gen = []  # 第gen次迭代中被选中更新的划分方案
         for i in range(update_num):
             npop_ns[i] = copy.deepcopy(random.sample(rep_ns, 1)[0])  # 随机从帕累托前沿中选择一个方案
-            t_ns = copy.deepcopy(npop_ns[i])             # 暂存当前选中的方案
+            t_ns = copy.deepcopy(npop_ns[i])  # 暂存当前选中的方案
             # 随机选择一种算法更新
             if random.random() < 0.2:
                 npop_ns[i] = mutation(G, npop_ns[i])  # 邻居多样策略
@@ -2093,7 +2371,7 @@ def StaticMOACD():
                         t_record[node - 1] = com_id
                     com_id += 1
                 for edge in npop_ns[i]:
-                    record[edge[0]-1] = t_record[edge[1]-1]
+                    record[edge[0] - 1] = t_record[edge[1] - 1]
                 record_gen.append([method, record])
 
             # 判断是否新值旧值支配情况
@@ -2104,7 +2382,8 @@ def StaticMOACD():
             Q = cal_Q(components, node_num, 2 * edge_num, B)
             GS = silhouette(G, components)
             # 判断是否新值旧值支配情况  新值不被旧值支配, 且不等于旧值
-            if (Q == 0.0) or ((Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2])):
+            if (Q == 0.0) or (
+                    (Q <= pop_value[i][1] and GS <= pop_value[i][2]) and (Q < pop_value[i][1] or GS < pop_value[i][2])):
                 no_dominate = False
             else:
                 no_dominate = True
@@ -2115,7 +2394,6 @@ def StaticMOACD():
                 npop_good_ns.append(copy.deepcopy(npop_ns[i]))
             else:
                 npop_ns[i] = pop_ns[i]
-
 
         # 帕累托最优解集合
         all_value = rep_value + npop_good_value
@@ -2166,11 +2444,12 @@ def StaticMOACD():
 def dyanmicMOACD():
     return render_template('DyanmicMOACD.html', async_mode=socketio.async_mode)
 
+
 # 前后端通信
 @socketio.on('connect', namespace='/dyanmicMOACD')
 def test_connect():
     thread = socketio.start_background_task(target=dyanmicMOACD_thread)
 
+
 if __name__ == '__main__':
     socketio.run(app, debug=True)
-

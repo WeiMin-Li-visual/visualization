@@ -73,7 +73,13 @@
     <script src="../static/layui/layui.js"></script>
     <script type="text/javascript" src="/static/js/echarts.js"></script>
     <script type="text/javascript" src="/static/js/function.js"></script>
+    <script src="../static/js/jquery.js"></script>
+    <script src="../static/js/jquery.cookie.js"></script>
     <script type="text/javascript">
+        (()=>{
+            if($.cookie('user') == undefined)
+                $(window).attr('location','/login');
+        })()
         layui.use('form', function(){
           var form = layui.form;
           var layer = layui.layer;
