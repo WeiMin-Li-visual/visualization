@@ -2452,7 +2452,7 @@ def test_connect():
 
 
 @app.route('/lpa')
-def lpa():  #缪赏
+def lpa(): #缪赏
     # 获取数据
     # G = nx.karate_club_graph()
     networkTemp = []
@@ -2489,6 +2489,7 @@ def lpa():  #缪赏
         links_data_json.append({})
         links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
         links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
+        links_data_json[len(links_data_json) - 1]['lineStyle']['color'] = 'rgb(0,0,0)'
         links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
         links_data_json[len(links_data_json) - 1]['name'] = 'null'
         links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
@@ -2535,8 +2536,7 @@ def lpa():  #缪赏
             if(best_labels != []):
                 label = random.sample(best_labels, 1)[0]  # 返回的是列表，所以需要[0]
                 nodes_data_json[node]['attributes']['modularity_class'] = label  # 更新标签
-            else:
-                label=node
+
             active_records[max_iter_num-1].append(label)
             neighbors_and_time[max_iter_num - 1][str(node)] = neighbortemp
         #分类的社区数
@@ -2550,7 +2550,7 @@ def lpa():  #缪赏
     print('社区数{}'.format(com))
     #储存分类结果 分类类型--数量
     classlist=[]
-    sort_list=list()
+    sort_list = list()
     for node in range(number_of_nodes):
         classlist.append(nodes_data_json[node]['attributes']['modularity_class'])
     sort_set = set([nodes_data_json[node]['attributes']['modularity_class'] for node in range(number_of_nodes)])
