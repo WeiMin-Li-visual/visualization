@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+    <meta charset="utf-8">
+</head>
+<body style="height: 100%; margin: 0">
+<div id="container" style="height: 100%"></div>
+<script type="text/javascript" src="/static/js/echarts.js"></script>
+{#1.编写ajax函数，return异步数据#}
+{#2.setoption导入静态数据#}
+{#3.setInterval实时请求#}
+<script type="text/javascript">
+    var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var app = {};
+    option = null;
+    var graph = {{ graph_data | tojson }}//获取后端返回的图数据
+        graph = JSON.parse(graph)
+    console.log(graph)
+    //设置节点的种类以及颜色
+    var categories = [];
+    categories[0] = {
+        name: '激活节点0',
+        itemStyle: {
+            color: '#2f4554'
+        }
+    }
+    {#alert(graph.nodes.length)#}
+    for (i=1;i< graph.nodes.length;i++){
+        r = Math.floor((Math.random()*255)+1)
+        g =Math.floor((Math.random()*255)+1)
+        b =Math.floor((Math.random()*255)+1)
+        categories[i]={
+            name:'激活节点'+i,
+            itemStyle:{
+                color:'rgb('+r+','+g+','+b+')'
+            }
+        }
+    }
+
+    //给节点的属性进行操作
+    graph.nodes.forEach(function (node) {
+        node.itemStyle = null;
+        node.symbolSize = 15;
+        node.value = node.symbolSize;
+        node.category = node.attributes.modularity_class;
+        // Use random x, y
+        node.x = Math.random() % myChart.getWidth();
+        node.y = Math.random() % myChart.getHeight();
+        node.draggable = true;
+    });
+    //设置要生成的图的相关属性
+    option = {
+        title: {
+            text: '',
+            subtext: 'Default layout',
+            top: 'bottom',
+            left: 'right'
+        },
+        tooltip: {},
+
+        animationDuration: 1500,
+        animationEasingUpdate: 'quinticInOut',
+        series: [
+            {
+                name: 'Les Miserables',
+                type: 'graph',
+                layout: 'none',
+                //下面三项分别设置节点数据，边数据，种类数据
+                data: graph.nodes,
+                links: graph.links,
+                categories: categories,
+                roam: true,//是否开启鼠标缩放和平移漫游。默认不开启。如果只想要开启缩放或者平移，可以设置成 'scale' 或者 'move'。设置成 true 为都开启
+                animation: false,
+                focusNodeAdjacency: true,//是否在鼠标移到节点上的时候突出显示节点以及节点的边和邻接节点。
+                itemStyle: {//图形样式，有 normal 和 emphasis 两个状态。normal 是图形在默认状态下的样式；emphasis 是图形在高亮状态下的样式，比如在鼠标悬浮或者图例联动高亮时。
+                    normal: {
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    }
+                },
+                label: {//图形上的文本标签，可用于说明图形的一些数据信息
+                    position: 'right',
+                    formatter: '{b}'
+                },
+                lineStyle: {
+                    color: 'source',//决定边的颜色是与起点相同还是与终点相同
+                    curveness: 0.3//边的曲度，支持从 0 到 1 的值，值越大曲度越大。
+                },
+                emphasis: {
+                    lineStyle: {
+                        width: 10
+                    }
+                },
+                force: { //力引导图基本配置
+                    repulsion: 270//节点之间的斥力因子。支持数组表达斥力范围，值越大斥力越大。
+                }
+            }
+        ]
+    };
+    myChart.setOption(option);//执行该语句就可以根据你设置的属性进行图的生成
+    //导入节点-标记节点转移变换字典
+    var active_records = {{ active_records | tojson }};
+    active_records = JSON.parse(active_records);
+    //下面通过setInterval函数进行不断从激活节点的记录中读取数据然后不断显示
+    var node_no = 0;//一轮的点
+    var circle_no = 0;//循环的轮数
+    var last_com = {{ last_com }}
+    console.log(active_records);
+    //导入节点-邻居-社区数-循环次数 字典值
+    var neighbors_and_time = {{ neighbors_and_time | tojson }};
+
+    console.log(neighbors_and_time)
+    var flag=1 //状态标志函数
+    interval_no = setInterval(function () {
+        //flag=1  放大被改节点和邻居节点
+        if(flag ==1){
+            //恢复节点原始大小
+            if((node_no==0&&circle_no!=0)||(node_no!=0&&circle_no==0)||(node_no!=0&&circle_no!=0)){
+                for (var node = 0; node < (graph.nodes).length; node++) {
+                    graph.nodes[node]['symbolSize'] = 15;
+                }
+            }
+            //节点变大。当前节点45大小，邻居节点25大小
+            var neighbors = neighbors_and_time[circle_no][node_no]
+            for(var i in neighbors){
+                graph.nodes[neighbors[i]]['symbolSize']=25
+            }
+            graph.nodes[node_no]['symbolSize']=45
+
+            myChart.setOption({
+                title: {
+                    text: '社区划分个数'+neighbors_and_time[circle_no]['com'],
+                    subtext: '第'+neighbors_and_time[circle_no]['time']+'循环,'+'当前更新的节点'+node_no,
+                    top: 'top',
+                    left: 'left'
+                },
+                series: [
+                    {
+                        data: graph.nodes,
+                        links: graph.links
+                    }
+                ]
+            })
+            flag=0;
+        }else{
+            {#alert('颜色'+node_no)#}
+            //flag=0 修改需改节点标记颜色
+            graph.nodes[node_no]['attributes']['modularity_class']=graph.nodes[active_records[circle_no][node_no]]['attributes']['modularity_class']
+            graph.nodes[node_no]['category']=graph.nodes[active_records[circle_no][node_no]]['attributes']['modularity_class']
+            myChart.setOption({
+                title: {
+                    text: '社区划分个数'+neighbors_and_time[circle_no]['com'],
+                    subtext: '第'+neighbors_and_time[circle_no]['time']+'循环,'+'当前更新的节点'+node_no,
+                    top: 'top',
+                    left: 'left'
+                },
+                series: [
+                    {
+                        data: graph.nodes,
+                        links: graph.links
+                    }
+                ]
+            })
+            flag =  1
+        }
+
+        //使得
+        if(flag == 1){
+            if(node_no==Object.keys(active_records[circle_no]).length-1){
+            circle_no++;
+            node_no=0
+            }else{
+                node_no++
+            }
+        }
+
+        //结束时
+        if(circle_no == Object.keys(active_records).length-1){
+            for (var node = 0; node < (graph.nodes).length; node++) {
+                    graph.nodes[node]['symbolSize'] = 15;
+            }
+            myChart.setOption({
+                title: {
+                    text: '社区划分个数'+neighbors_and_time[circle_no]['com'],
+                    subtext: '第'+neighbors_and_time[circle_no]['time']+'循环,'+'更新节点完毕',
+                    top: 'top',
+                    left: 'left'
+                },
+                series: [
+                    {
+                        data: graph.nodes,
+                        links: graph.links
+                    }
+                ]
+            });
+
+            clearInterval(interval_no);// 清除循环
+
+        }
+
+    }, 1);
+</script>
+</body>
+</html>

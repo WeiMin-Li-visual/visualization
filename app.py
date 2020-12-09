@@ -2451,5 +2451,114 @@ def test_connect():
     thread = socketio.start_background_task(target=dyanmicMOACD_thread)
 
 
+@app.route('/lpa')
+def lpa(): #缪赏
+    # 获取数据
+    # G = nx.karate_club_graph()
+    networkTemp = []
+    networkFile = open('static/data/Wiki.txt', 'r')
+    # 初始化前端json数据：根据Echarts设计初始化值。参数参考https://echarts.apache.org/zh/option.html#series-graph
+
+    # 设置节点数
+    number_of_nodes = 105
+
+    for line in networkFile.readlines():
+        linePiece = line.split()
+        networkTemp.append([int(linePiece[0]), int(linePiece[1])])
+
+    # 设置传给前端的节点数据边数据的json串
+    graph_data_json = {}
+    nodes_data_json = []
+    for node in range(number_of_nodes):
+        nodes_data_json.append({})
+        nodes_data_json[node]['attributes'] = {}
+        nodes_data_json[node]['attributes']['modularity_class'] = node
+        nodes_data_json[node]['id'] = str(node)
+        nodes_data_json[node]['category'] = ''
+        nodes_data_json[node]['itemStyle'] = ''
+        nodes_data_json[node]['label'] = {}
+        nodes_data_json[node]['label']['normal'] = {}
+        nodes_data_json[node]['label']['normal']['show'] = 'false'
+        nodes_data_json[node]['name'] = str(node)
+        nodes_data_json[node]['symbolSize'] = 35
+        nodes_data_json[node]['value'] = 15
+        nodes_data_json[node]['x'] = 0
+        nodes_data_json[node]['y'] = 0
+    links_data_json = []
+    for link in networkTemp:
+        links_data_json.append({})
+        links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
+        links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
+        links_data_json[len(links_data_json) - 1]['lineStyle']['color'] = 'rgb(0,0,0)'
+        links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
+        links_data_json[len(links_data_json) - 1]['name'] = 'null'
+        links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
+        links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
+    graph_data_json['nodes'] = nodes_data_json
+    graph_data_json['links'] = links_data_json
+    graph_data = json.dumps(graph_data_json)
+
+    # lpa算法,返回每次迭代更新的节点
+    def get_neighbors(node):
+        neighbors=[]
+        for i in links_data_json:
+            if (i.get('source')==str(node)):
+                target=int(i.get('target'))
+                neighbors.append([target,nodes_data_json[target].get('attributes').get('modularity_class')])
+            if (i.get('target')==str(node)):
+                source=int(i.get('source'))
+                neighbors.append([source,nodes_data_json[source].get('attributes').get('modularity_class')])
+        return neighbors;
+
+    active_records = []  # 用来存放每个节点的模拟结果
+    max_iter_num = 0  # 迭代次数
+    iter_num=10 #迭代总次数
+    neighbors_and_time=[] #存放循环的次数和邻居节点
+    while max_iter_num < iter_num:
+        active_records.append([])
+        neighbors_and_time.append({})
+        neighbors_and_time[max_iter_num]['time']=max_iter_num+1
+        max_iter_num += 1
+        #print('迭代次数', max_iter_num)
+        for node in range(number_of_nodes):
+            count = {}  # 记录邻居节点及其标签
+            neighbors=get_neighbors(node)
+            neighbortemp=[]
+
+            for nbr in neighbors:  # node的邻居节点
+                neighbortemp.append(nbr[0])
+                label = nbr[1]
+                count[label] = count.setdefault(label, 0) + 1
+            # 找到出现次数最多的标签
+            count_items = sorted(count.items(), key=lambda x: -x[-1])
+            best_labels = [k for k, v in count_items if v == count_items[0][1]]
+            # 当多个标签最大技术值相同时随机选取一个标签
+            if(best_labels != []):
+                label = random.sample(best_labels, 1)[0]  # 返回的是列表，所以需要[0]
+                nodes_data_json[node]['attributes']['modularity_class'] = label  # 更新标签
+
+            active_records[max_iter_num-1].append(label)
+            neighbors_and_time[max_iter_num - 1][str(node)] = neighbortemp
+        #分类的社区数
+        com = len(set([nodes_data_json[node]['attributes']['modularity_class'] for node in range(number_of_nodes)]))
+        neighbors_and_time[max_iter_num-1]['com'] = com
+
+    last_com = len(set([nodes_data_json[node]['attributes']['modularity_class'] for node in range(number_of_nodes)]))
+    active_records = json.dumps(active_records)
+    # neighbors_and_time = json.dumps(neighbors_and_time)
+
+    print('社区数{}'.format(com))
+    #储存分类结果 分类类型--数量
+    classlist=[]
+    sort_list = list()
+    for node in range(number_of_nodes):
+        classlist.append(nodes_data_json[node]['attributes']['modularity_class'])
+    sort_set = set([nodes_data_json[node]['attributes']['modularity_class'] for node in range(number_of_nodes)])
+    for item in sort_set:
+        sort_list.append((item,classlist.count(item)))
+    print(sort_list)
+
+    return render_template('lpa.html',graph_data = graph_data,active_records = active_records,last_com=last_com,neighbors_and_time=neighbors_and_time)
+
 if __name__ == '__main__':
     socketio.run(app, debug=True)
