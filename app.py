@@ -946,7 +946,7 @@ networkTemp, number_of_nodes, graph_data = init_network(path1)
 network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path)
 connection = pymysql.connect(host='localhost',  # host属性
                              user='root',  # 用户名
-                             password='159357asd!',  # 此处填登录数据库的密码
+                             password='mysql',  # 此处填登录数据库的密码
                              db='mysql'  # 数据库名
                              )
 cur = connection.cursor()
@@ -2452,50 +2452,24 @@ def test_connect():
 
 
 @app.route('/lpa')
-def lpa(): #缪赏
-    # 获取数据
-    # G = nx.karate_club_graph()
-    networkTemp = []
-    networkFile = open('static/data/Wiki.txt', 'r')
+def lpa():
+    # 获取数据tpye=truple
+    G = init_network('static/data/Wiki.txt')
+
+    #获取边信息
+    networkTemp = G[0]
     # 初始化前端json数据：根据Echarts设计初始化值。参数参考https://echarts.apache.org/zh/option.html#series-graph
 
-    # 设置节点数
-    number_of_nodes = 105
-
-    for line in networkFile.readlines():
-        linePiece = line.split()
-        networkTemp.append([int(linePiece[0]), int(linePiece[1])])
+    # 获取节点数
+    number_of_nodes = G[1]
 
     # 设置传给前端的节点数据边数据的json串
-    graph_data_json = {}
-    nodes_data_json = []
-    for node in range(number_of_nodes):
-        nodes_data_json.append({})
-        nodes_data_json[node]['attributes'] = {}
-        nodes_data_json[node]['attributes']['modularity_class'] = node
-        nodes_data_json[node]['id'] = str(node)
-        nodes_data_json[node]['category'] = ''
-        nodes_data_json[node]['itemStyle'] = ''
-        nodes_data_json[node]['label'] = {}
-        nodes_data_json[node]['label']['normal'] = {}
-        nodes_data_json[node]['label']['normal']['show'] = 'false'
-        nodes_data_json[node]['name'] = str(node)
-        nodes_data_json[node]['symbolSize'] = 35
-        nodes_data_json[node]['value'] = 15
-        nodes_data_json[node]['x'] = 0
-        nodes_data_json[node]['y'] = 0
-    links_data_json = []
-    for link in networkTemp:
-        links_data_json.append({})
-        links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
-        links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
-        links_data_json[len(links_data_json) - 1]['lineStyle']['color'] = 'rgb(0,0,0)'
-        links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
-        links_data_json[len(links_data_json) - 1]['name'] = 'null'
-        links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
-        links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
-    graph_data_json['nodes'] = nodes_data_json
-    graph_data_json['links'] = links_data_json
+    graph_data_json = json.loads(G[2])
+    #点类别设置每个都不同
+    for i in range(number_of_nodes):
+        graph_data_json['nodes'][i]['attributes']['modularity_class'] = i
+    nodes_data_json = graph_data_json['nodes']
+    links_data_json  = graph_data_json['links']
     graph_data = json.dumps(graph_data_json)
 
     # lpa算法,返回每次迭代更新的节点
@@ -2519,6 +2493,8 @@ def lpa(): #缪赏
         neighbors_and_time.append({})
         neighbors_and_time[max_iter_num]['time']=max_iter_num+1
         max_iter_num += 1
+        # 分类的社区数
+        com = len(set([nodes_data_json[node]['attributes']['modularity_class'] for node in range(number_of_nodes)]))
         #print('迭代次数', max_iter_num)
         for node in range(number_of_nodes):
             count = {}  # 记录邻居节点及其标签
@@ -2536,17 +2512,18 @@ def lpa(): #缪赏
             if(best_labels != []):
                 label = random.sample(best_labels, 1)[0]  # 返回的是列表，所以需要[0]
                 nodes_data_json[node]['attributes']['modularity_class'] = label  # 更新标签
-
             active_records[max_iter_num-1].append(label)
+            #存放该节点邻居节点
             neighbors_and_time[max_iter_num - 1][str(node)] = neighbortemp
-        #分类的社区数
-        com = len(set([nodes_data_json[node]['attributes']['modularity_class'] for node in range(number_of_nodes)]))
+        #存放循环开始前的社区数
         neighbors_and_time[max_iter_num-1]['com'] = com
 
+    #存放最后的社区数
     last_com = len(set([nodes_data_json[node]['attributes']['modularity_class'] for node in range(number_of_nodes)]))
     active_records = json.dumps(active_records)
     # neighbors_and_time = json.dumps(neighbors_and_time)
 
+    #验证用
     print('社区数{}'.format(com))
     #储存分类结果 分类类型--数量
     classlist=[]
