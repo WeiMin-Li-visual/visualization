@@ -2450,9 +2450,9 @@ def dyanmicMOACD():
 def test_connect():
     thread = socketio.start_background_task(target=dyanmicMOACD_thread)
 
-#基于lps算法的静态社区划分
+# 基于lps算法的静态社区划分
 @app.route('/lpa')
-def lpa(): #缪赏
+def lpa(): # 缪赏
     # 获取数据
     # G = nx.karate_club_graph()
     networkTemp = []
@@ -2560,8 +2560,8 @@ def lpa(): #缪赏
 
     return render_template('lpa.html',graph_data = graph_data,active_records = active_records,last_com=last_com,neighbors_and_time=neighbors_and_time)
 
-#基于GN算法的静态社区划分
-@app.route('/GN')#郭易兴
+# 基于GN算法的静态社区划分
+@app.route('/GN')   # 郭易兴
 def GN():
     import json
     import networkx as nx
