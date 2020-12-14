@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+    <meta charset="utf-8">
+</head>
+<body style="height: 100%; margin: 0">
+<div id="container" style="height: 100%"></div>
+<script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript">
+    'use strict'
+    var dom = document.getElementById("container");
+    var myChart = echarts.init(dom);
+    var app = {};
+    var option = null;
+    var graph = {{ graph_data | tojson }}//获取后端返回的图数据
+        graph = JSON.parse(graph)
+    
+    var node_color = ['#DA70D6','#000000','#66ccff','#8b0000','#d2691e','#ffdab9',,'#FFC0CB','#E6E6FA','#6495ED','#F0FFFF','#008080','#32CD32','#FAFAD2','#FFE4B5','#CD853F','#FA8072','#800000','#D2691E','#FF8C00','#FFFACD','#F0FFF0','#AFEEEE','#F0F8FF','#191970','#BA55D3','#4B0082','#00FFFF','#7FFF00','#DAA520','#A0522D','#DCDCDC','#A52A2A','#FFE4E1','#2f4554']
+    //console.log(graph)
+    //设置节点的种类
+    var categories = [];
+    for (var i = 0; i < 34; i++){
+        categories[i] = {
+        name: '社区'+ i,
+        itemStyle: {
+            color: node_color[i]
+        }
+    };
+    }
+
+    //给节点的属性进行操作
+    graph.nodes.forEach(function (node) {
+        node.itemStyle = null;
+        node.symbolSize = 15;
+        node.value = node.symbolSize;
+        node.category = node.attributes.modularity_class;
+        // Use random x, y
+        node.x = Math.random() % myChart.getWidth();
+        node.y = Math.random() % myChart.getHeight();
+        node.draggable = true;
+    });
+    //设置要生成的图的相关属性
+    option = {
+        title: {
+            text: 'Les Miserables',
+            subtext: 'Default layout',
+            top: 'bottom',
+            left: 'right'
+        },
+        tooltip: {},
+        /*
+        legend: [{
+            type: 'scroll',
+            orient: 'vertical',
+            right: 100,
+            top: 50,
+            bottom: 50,
+            data: categories.map(function (a) {
+                return a.name;
+            })
+        }],
+*/
+        animationDuration: 1500,
+        animationEasingUpdate: 'quinticInOut',
+        series: [
+            {
+                name: 'Les Miserables',
+                type: 'graph',
+                layout: 'none',
+                //下面三项分别设置节点数据，边数据，种类数据
+                data: graph.nodes,
+                links: graph.links,
+                categories: categories,
+                roam: true,
+                animation: false,
+                focusNodeAdjacency: true,
+                itemStyle: {
+                    normal: {
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    }
+                },
+                label: {
+                    position: 'right',
+                    formatter: '{b}'
+                },
+                lineStyle: {
+                    color: 'rgb(0,0,0)',
+                    curveness: 0.3,
+                    width: 3
+                },
+                
+                
+                force: {
+                    repulsion: 270
+                }
+            }
+        ]
+    };
+
+    myChart.setOption(option);//执行该语句就可以根据你设置的属性进行图的生成
+
+    var remove_edge = {{ remove_edge | tojson }}
+    var all_Q = {{ all_Q | tojson }}
+    var community_num = {{ community_num | tojson }}
+    var community_record = {{ community_record }}
+    var best_record = {{ best_record }}
+    var best_num = {{ best_num }}
+    var best_Q = {{ best_Q }}
+
+    remove_edge = JSON.parse(remove_edge)
+//    best_record = JSON.parse(best_record)
+
+    // console.log('remove_edge:'+ remove_edge);
+    // console.log('remove_edge[1]:'+ remove_edge[1]);
+    // console.log(Object.keys(remove_edge).length)
+    var remove_count = 0
+    
+    myChart.setOption({
+        title: {
+            text: '当前社区数是1',
+            subtext: '已删除0条边',
+            top: 'top',
+            left: 'left'
+        },
+    });
+
+    
+//    console.log(Object.keys(remove_edge).length)
+    
+    var interval_no
+    interval_no = setInterval(function () 
+    {
+        // 删除边的过程（算法执行过程）
+        if (remove_count< Object.keys(remove_edge).length) 
+        {
+            graph.links[remove_edge[remove_count]].lineStyle.width = 0;
+            remove_count++;
+            if (community_num[remove_count]!=community_num[remove_count-1] && remove_count< Object.keys(remove_edge).length)
+            {
+                
+                for (var i = 0; i < community_num[remove_count] ; i++) {
+                    for (var j=0;j<community_record[remove_count][i].length;j++){
+                        graph.nodes[community_record[remove_count][i][j]-1].category = i;
+                    }
+                }
+            }
+            
+
+            myChart.setOption({
+                title: {
+                    text: '当前社区数是' + community_num[remove_count-1] + ',当前模块度是' + all_Q[remove_count-1],
+                    subtext: '已删除' + remove_count + '条边',
+                    top: 'top',
+                    left: 'left'
+                },
+                series: [
+                    {
+                        data: graph.nodes,
+                        links: graph.links
+                    }
+                ]
+            });
+        }
+        //console.log(remove_count)
+        
+        // 最后结果
+        if (remove_count == Object.keys(remove_edge).length+1) 
+        {
+            for (var i = 0;i<Object.keys(remove_edge).length;i++) {
+                graph.links[remove_edge[i]].lineStyle.width = 3;
+            }
+        //    console.log(best_num)
+        //    console.log(best_record[0][0]+typeof(best_record[0][0]))
+        //    console.log(graph.nodes[1])
+            for (var i = 0; i < best_num ; i++) {
+                for (var j=0;j<best_record[i].length;j++){
+                    
+                    graph.nodes[best_record[i][j]-1].category = i;
+                    graph.nodes[best_record[i][j]-1].symbolSize = 20;
+                }
+            }
+            
+            myChart.setOption({
+                title: {
+                    text: '最好结果社区数是' + best_num + ',其模块度是' + best_Q,
+                    subtext: '',
+                    top: 'top',
+                    left: 'left'
+                },
+                series: [
+                    {
+                        data: graph.nodes,
+                        links: graph.links
+                    }
+                ]
+            });
+            clearInterval(interval_no);     // 清除循环
+        }
+
+        if (remove_count == Object.keys(remove_edge).length) 
+        {
+            remove_count++;
+        }
+
+    }, 500);
+
+</script>
+</body>
+</html>
