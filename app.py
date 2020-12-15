@@ -2450,11 +2450,14 @@ def dyanmicMOACD():
 def test_connect():
     thread = socketio.start_background_task(target=dyanmicMOACD_thread)
 
-
+# 基于lps算法的静态社区划分
 @app.route('/lpa')
-def lpa():
-    # 获取数据tpye=truple
+def lpa(): # 缪赏
+    # 获取数据
+    # G = nx.karate_club_graph()
+    networkTemp = []
     G = init_network('static/data/Wiki.txt')
+    # 初始化前端json数据：根据Echarts设计初始化值。参数参考https://echarts.apache.org/zh/option.html#series-graph
 
     #获取边信息
     networkTemp = G[0]
@@ -2536,6 +2539,112 @@ def lpa():
     print(sort_list)
 
     return render_template('lpa.html',graph_data = graph_data,active_records = active_records,last_com=last_com,neighbors_and_time=neighbors_and_time)
+
+# 基于GN算法的静态社区划分
+@app.route('/GN')   # 郭易兴
+def GN():
+    import json
+    import networkx as nx
+    from networkx.algorithms import community
+
+    def cal_Q(partition, G):
+        a = []
+        e = []
+        m = len(G.edges(None, False))
+
+
+        for community in partition:
+            t = 0.0
+            for node in community:
+                t += len([x for x in G.neighbors(node)])
+            a.append(t / (2 * m))
+
+        for community in partition:
+            t = 0.0
+            for i in range(len(community)):
+                for j in range(len(community)):
+                    if (G.has_edge(community[i], community[j])):
+                        t += 1.0
+            e.append(t / (2 * m))
+
+        q = 0.0
+        for ei, ai in zip(e, a):
+            q += (ei - ai ** 2)
+        return q
+
+    # 读取数据
+    networkTemp = []
+    networkFile = nx.read_gml('static/data/karate.gml', label='id')
+    networkFile_copy = nx.read_gml('static/data/karate.gml', label='id')
+    # 设置节点数
+    number_of_nodes = 34
+    networkTemp = list(networkFile.edges)
+
+    # 设置传给前端的节点数据边数据的json串
+    graph_data_json = {}
+    nodes_data_json = []
+    for node in range(number_of_nodes):
+        nodes_data_json.append({})
+        nodes_data_json[node]['attributes'] = {}
+        nodes_data_json[node]['attributes']['modularity_class'] = 0
+        nodes_data_json[node]['id'] = str(node)
+        nodes_data_json[node]['category'] = 0
+        nodes_data_json[node]['itemStyle'] = ''
+        nodes_data_json[node]['label'] = {}
+        nodes_data_json[node]['label']['normal'] = {}
+        nodes_data_json[node]['label']['normal']['show'] = 'false'
+        nodes_data_json[node]['name'] = str(node)
+        nodes_data_json[node]['symbolSize'] = 35
+        nodes_data_json[node]['value'] = 15
+        nodes_data_json[node]['x'] = 0
+        nodes_data_json[node]['y'] = 0
+    links_data_json = []
+    for link in networkTemp:
+        links_data_json.append({})
+        links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
+        links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
+        links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
+        links_data_json[len(links_data_json) - 1]['name'] = 'null'
+        links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
+        links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
+    graph_data_json['nodes'] = nodes_data_json
+    graph_data_json['links'] = links_data_json
+    graph_data = json.dumps(graph_data_json)
+
+    remove_temp=[]
+    remove_edge=[]
+    all_Q=[]
+    community_num=[]
+    best_record=[]
+    community_record=[]
+    while list(networkFile.edges)!=[]:
+        # 记录本次要删掉的边
+        edge = max(nx.edge_betweenness_centrality(networkFile).items(), \
+                   key=lambda item: item[1])[0]
+        networkFile.remove_edge(edge[0],edge[1])
+        components = [list(c) for c in list(nx.connected_components(networkFile))]
+        community_record.append(components)
+        remove_temp.append(edge)
+        cur_Q = cal_Q(components, networkFile_copy)
+        all_Q.append(cur_Q)
+
+    best_index = all_Q.index(max(all_Q))
+    best_record = community_record[best_index]
+    best_num = len(best_record)
+    best_Q = max(all_Q)
+    community_num = [len(i) for i in community_record]
+    remove_temp = [list(i) for i in remove_temp]
+    # 删除边以什么顺序
+    for i in remove_temp:
+        for j in links_data_json:
+            if i[0]-1==int(j['source']) and i[1]-1==int(j['target']):
+                remove_edge.append(int(j['id']))
+
+    remove_edge=json.dumps(remove_edge)
+    return render_template('GN.html', graph_data=graph_data,
+            remove_edge=remove_edge,all_Q=all_Q,community_num=community_num,
+            best_record=best_record,community_record=community_record,
+            best_num=best_num,best_Q=best_Q)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
