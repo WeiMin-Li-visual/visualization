@@ -21,6 +21,29 @@
     var option = null;
     var graph = {{ graph_data | tojson }}//获取后端返回的图数据
     console.log(JSON.parse(graph))
+    var option = init_option(graph);//初始化属性
+    graph = init_graph(graph,true);  //初始化图数据
+
+    //自定义显示option函数
+    var my_option = function(graph,neighbors_and_time){
+        //设置要生成的图的相关属性
+        option = {
+            title: {
+                text: '社区划分个数' + neighbors_and_time[circle_no]['com'],
+                subtext: '第' + neighbors_and_time[circle_no]['time'] + '循环,' + '当前更新的节点' + node_no,
+                top: 'top',
+                left: 'left'
+            },
+            series: [
+                {
+                    data: graph.nodes,
+                    links: graph.links
+                }
+            ]
+        };
+    return option;
+}
+
     //设置节点的种类以及颜色
     var categories = [];
     categories[0] = {
@@ -29,8 +52,7 @@
             color: '#2f4554'
         }
     }
-
-    for (var i=1;i< JSON.parse(graph).nodes.length;i++){
+    for (var i=1;i< (graph).nodes.length;i++){
         var r = Math.floor((Math.random()*255)+1)
         var g =Math.floor((Math.random()*255)+1)
         var b =Math.floor((Math.random()*255)+1)
@@ -41,69 +63,10 @@
             }
         }
     }
-    graph = init_graph(graph,true);  //初始化图数据
-    //给节点的属性进行操作
-    {#graph.nodes.forEach(function (node) {#}
-    {#    node.itemStyle = null;#}
-    {#    node.symbolSize = 15;#}
-    {#    node.value = node.symbolSize;#}
-    {#    node.category = node.attributes.modularity_class;#}
-    {#    // Use random x, y#}
-    {#    node.x = Math.random() % myChart.getWidth();#}
-    {#    node.y = Math.random() % myChart.getHeight();#}
-    {#    node.draggable = true;#}
+    //自定义颜色类别
+    option['series'][0]['categories'] = categories
 
     //设置要生成的图的相关属性
-    option = {
-        title: {
-            text: '',
-            subtext: 'Default layout',
-            top: 'bottom',
-            left: 'right'
-        },
-        tooltip: {},
-
-        animationDuration: 1500,
-        animationEasingUpdate: 'quinticInOut',
-        series: [
-            {
-                name: 'Les Miserables',
-                type: 'graph',
-                layout: 'none',
-                //下面三项分别设置节点数据，边数据，种类数据
-                data: graph.nodes,
-                links: graph.links,
-                categories: categories,
-                roam: true,//是否开启鼠标缩放和平移漫游。默认不开启。如果只想要开启缩放或者平移，可以设置成 'scale' 或者 'move'。设置成 true 为都开启
-                animation: false,
-                focusNodeAdjacency: true,//是否在鼠标移到节点上的时候突出显示节点以及节点的边和邻接节点。
-                itemStyle: {//图形样式，有 normal 和 emphasis 两个状态。normal 是图形在默认状态下的样式；emphasis 是图形在高亮状态下的样式，比如在鼠标悬浮或者图例联动高亮时。
-                    normal: {
-                        borderColor: '#fff',
-                        borderWidth: 1,
-                        shadowBlur: 10,
-                        shadowColor: 'rgba(0, 0, 0, 0.3)'
-                    }
-                },
-                label: {//图形上的文本标签，可用于说明图形的一些数据信息
-                    position: 'right',
-                    formatter: '{b}'
-                },
-                lineStyle: {
-
-                    curveness: 0.3//边的曲度，支持从 0 到 1 的值，值越大曲度越大。
-                },
-                emphasis: {
-                    lineStyle: {
-                        width: 10
-                    }
-                },
-                force: { //力引导图基本配置
-                    repulsion: 270//节点之间的斥力因子。支持数组表达斥力范围，值越大斥力越大。
-                }
-            }
-        ]
-    };
     myChart.setOption(option);//执行该语句就可以根据你设置的属性进行图的生成
     //导入节点-标记节点转移变换字典
     var active_records = {{ active_records | tojson }};
@@ -134,41 +97,19 @@
             }
             graph.nodes[node_no]['symbolSize']=45
 
-            myChart.setOption({
-                title: {
-                    text: '社区划分个数'+neighbors_and_time[circle_no]['com'],
-                    subtext: '第'+neighbors_and_time[circle_no]['time']+'循环,'+'当前更新的节点'+node_no,
-                    top: 'top',
-                    left: 'left'
-                },
-                series: [
-                    {
-                        data: graph.nodes,
-                        links: graph.links
-                    }
-                ]
-            })
+            myChart.setOption(my_option(graph,neighbors_and_time))
+
             flag=0;
         }else{
             {#alert('颜色'+node_no)#}
             //flag=0 修改需改节点标记颜色
             graph.nodes[node_no]['attributes']['modularity_class']=graph.nodes[active_records[circle_no][node_no]]['attributes']['modularity_class']
             graph.nodes[node_no]['category']=graph.nodes[active_records[circle_no][node_no]]['attributes']['modularity_class']
-            myChart.setOption({
-                title: {
-                    text: '社区划分个数'+neighbors_and_time[circle_no]['com'],
-                    subtext: '第'+neighbors_and_time[circle_no]['time']+'循环,'+'当前更新的节点'+node_no,
-                    top: 'top',
-                    left: 'left'
-                },
-                series: [
-                    {
-                        data: graph.nodes,
-                        links: graph.links
-                    }
-                ]
-            })
+
+            myChart.setOption(my_option(graph,neighbors_and_time))
+
             flag =  1
+
         }
 
         //使得
@@ -186,23 +127,13 @@
             for (var node = 0; node < (graph.nodes).length; node++) {
                     graph.nodes[node]['symbolSize'] = 15;
             }
-            myChart.setOption({
-                title: {
-                    text: '社区划分个数'+neighbors_and_time[circle_no]['com'],
-                    subtext: '第'+neighbors_and_time[circle_no]['time']+'循环,'+'更新节点完毕',
-                    top: 'top',
-                    left: 'left'
-                },
-                series: [
-                    {
-                        data: graph.nodes,
-                        links: graph.links
-                    }
-                ]
-            });
+            var myoption = my_option(graph,neighbors_and_time)
+            myoption['title']['text']='社区划分个数'+neighbors_and_time[circle_no]['com']
+            myoption['title']['subtext']='第'+neighbors_and_time[circle_no]['time']+'循环,'+'更新节点完毕'
 
+            myChart.setOption(myoption)
+            
             clearInterval(interval_no);// 清除循环
-
         }
 
     }, 1);
