@@ -2,21 +2,25 @@
 <html style="height: 100%">
 <head>
     <meta charset="utf-8">
+    <title>LPA算法计算过程</title>
 </head>
 <body style="height: 100%; margin: 0">
 <div id="container" style="height: 100%"></div>
 <script type="text/javascript" src="/static/js/echarts.js"></script>
+<script type="text/javascript" src="/static/js/function.js"></script>
+<script src="../static/js/jquery.js"></script>
+
 {#1.编写ajax函数，return异步数据#}
 {#2.setoption导入静态数据#}
 {#3.setInterval实时请求#}
 <script type="text/javascript">
+    'use strict'
     var dom = document.getElementById("container");
     var myChart = echarts.init(dom);
     var app = {};
-    option = null;
+    var option = null;
     var graph = {{ graph_data | tojson }}//获取后端返回的图数据
-        graph = JSON.parse(graph)
-    console.log(graph)
+    console.log(JSON.parse(graph))
     //设置节点的种类以及颜色
     var categories = [];
     categories[0] = {
@@ -25,11 +29,11 @@
             color: '#2f4554'
         }
     }
-    {#alert(graph.nodes.length)#}
-    for (i=1;i< graph.nodes.length;i++){
-        r = Math.floor((Math.random()*255)+1)
-        g =Math.floor((Math.random()*255)+1)
-        b =Math.floor((Math.random()*255)+1)
+
+    for (var i=1;i< JSON.parse(graph).nodes.length;i++){
+        var r = Math.floor((Math.random()*255)+1)
+        var g =Math.floor((Math.random()*255)+1)
+        var b =Math.floor((Math.random()*255)+1)
         categories[i]={
             name:'激活节点'+i,
             itemStyle:{
@@ -37,18 +41,18 @@
             }
         }
     }
-
+    graph = init_graph(graph,true);  //初始化图数据
     //给节点的属性进行操作
-    graph.nodes.forEach(function (node) {
-        node.itemStyle = null;
-        node.symbolSize = 15;
-        node.value = node.symbolSize;
-        node.category = node.attributes.modularity_class;
-        // Use random x, y
-        node.x = Math.random() % myChart.getWidth();
-        node.y = Math.random() % myChart.getHeight();
-        node.draggable = true;
-    });
+    {#graph.nodes.forEach(function (node) {#}
+    {#    node.itemStyle = null;#}
+    {#    node.symbolSize = 15;#}
+    {#    node.value = node.symbolSize;#}
+    {#    node.category = node.attributes.modularity_class;#}
+    {#    // Use random x, y#}
+    {#    node.x = Math.random() % myChart.getWidth();#}
+    {#    node.y = Math.random() % myChart.getHeight();#}
+    {#    node.draggable = true;#}
+
     //设置要生成的图的相关属性
     option = {
         title: {
@@ -86,7 +90,7 @@
                     formatter: '{b}'
                 },
                 lineStyle: {
-                    color: 'source',//决定边的颜色是与起点相同还是与终点相同
+
                     curveness: 0.3//边的曲度，支持从 0 到 1 的值，值越大曲度越大。
                 },
                 emphasis: {
@@ -114,7 +118,7 @@
 
     console.log(neighbors_and_time)
     var flag=1 //状态标志函数
-    interval_no = setInterval(function () {
+    var interval_no = setInterval(function () {
         //flag=1  放大被改节点和邻居节点
         if(flag ==1){
             //恢复节点原始大小

@@ -31,7 +31,6 @@ init_option = function(graph){
             label: {
                 fontSize: 20,
             },
-
         };
     //设置要生成的图的相关属性
     option = {
