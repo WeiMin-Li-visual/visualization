@@ -944,19 +944,19 @@ path = 'static/data/synfix/z_3/synfix_3.t01.edges'
 path1 = 'static/data/Wiki.txt'
 networkTemp, number_of_nodes, graph_data = init_network(path1)
 network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path)
-connection = pymysql.connect(host='localhost',  # host属性
-                             user='root',  # 用户名
-                             password='159357asd!',  # 此处填登录数据库的密码
-                             db='mysql'  # 数据库名
-                             )
-cur = connection.cursor()
-cur.execute('use logindata')
-app.config['MAIL_SERVER'] = 'smtp.qq.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = '719723236@qq.com'
-app.config['MAIL_PASSWORD'] = 'tlwiuoueauapbefb'
-mail = Mail(app)
+# connection = pymysql.connect(host='localhost',  # host属性
+#                              user='root',  # 用户名
+#                              password='159357asd!',  # 此处填登录数据库的密码
+#                              db='mysql'  # 数据库名
+#                              )
+# cur = connection.cursor()
+# cur.execute('use logindata')
+# app.config['MAIL_SERVER'] = 'smtp.qq.com'
+# app.config['MAIL_PORT'] = 587
+# app.config['MAIL_USE_TLS'] = True
+# app.config['MAIL_USERNAME'] = '719723236@qq.com'
+# app.config['MAIL_PASSWORD'] = 'tlwiuoueauapbefb'
+# mail = Mail(app)
 
 
 @app.route('/checkUser', methods=["POST"])
@@ -2572,7 +2572,6 @@ def GN():
         e = []
         m = len(G.edges(None, False))
 
-
         for community in partition:
             t = 0.0
             for node in community:
@@ -2593,47 +2592,18 @@ def GN():
         return q
 
     # 读取数据
-    networkTemp = []
-    networkFile = nx.read_gml('static/data/karate.gml', label='id')
-    networkFile_copy = nx.read_gml('static/data/karate.gml', label='id')
-    # 设置节点数
-    number_of_nodes = 34
-    networkTemp = list(networkFile.edges)
+    path_GN = 'static/data/karate.edges'
+    network, num_nodes, graph_data_json = init_network(path_GN)
 
-    # 设置传给前端的节点数据边数据的json串
-    graph_data_json = {}
-    nodes_data_json = []
-    for node in range(number_of_nodes):
-        nodes_data_json.append({})
-        nodes_data_json[node]['attributes'] = {}
-        nodes_data_json[node]['attributes']['modularity_class'] = 0
-        nodes_data_json[node]['id'] = str(node)
-        nodes_data_json[node]['category'] = 0
-        nodes_data_json[node]['itemStyle'] = ''
-        nodes_data_json[node]['label'] = {}
-        nodes_data_json[node]['label']['normal'] = {}
-        nodes_data_json[node]['label']['normal']['show'] = 'false'
-        nodes_data_json[node]['name'] = str(node)
-        nodes_data_json[node]['symbolSize'] = 35
-        nodes_data_json[node]['value'] = 15
-        nodes_data_json[node]['x'] = 0
-        nodes_data_json[node]['y'] = 0
-    links_data_json = []
-    for link in networkTemp:
-        links_data_json.append({})
-        links_data_json[len(links_data_json) - 1]['id'] = str(len(links_data_json) - 1)
-        links_data_json[len(links_data_json) - 1]['lineStyle'] = {}
-        links_data_json[len(links_data_json) - 1]['lineStyle']['normal'] = {}
-        links_data_json[len(links_data_json) - 1]['name'] = 'null'
-        links_data_json[len(links_data_json) - 1]['source'] = str(link[0] - 1)
-        links_data_json[len(links_data_json) - 1]['target'] = str(link[1] - 1)
-    graph_data_json['nodes'] = nodes_data_json
-    graph_data_json['links'] = links_data_json
-    graph_data = json.dumps(graph_data_json)
+    networkFile = nx.Graph(network)
+    networkFile_copy = nx.Graph(network)
+
+    links_data_json = json.loads(graph_data_json)["links"]
 
     remove_temp=[]
     remove_edge=[]
     all_Q=[]
+
     community_num=[]
     best_record=[]
     community_record=[]
@@ -2661,7 +2631,7 @@ def GN():
                 remove_edge.append(int(j['id']))
 
     remove_edge=json.dumps(remove_edge)
-    return render_template('GN.html', graph_data=graph_data,
+    return render_template('GN.html', graph_data=graph_data_json,
             remove_edge=remove_edge,all_Q=all_Q,community_num=community_num,
             best_record=best_record,community_record=community_record,
             best_num=best_num,best_Q=best_Q)
