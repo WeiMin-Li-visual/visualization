@@ -945,19 +945,19 @@ path1 = 'static/data/Wiki.txt'
 networkTemp, number_of_nodes, graph_data = init_network(path1)
 network_synfix, num_nodes_synfix, graph_data_synfix = init_network(path)
 
-connection = pymysql.connect(host='localhost',  # host属性
-                             user='root',  # 用户名
-                             password='mysql',  # 此处填登录数据库的密码
-                             db='mysql'  # 数据库名
-                             )
-cur = connection.cursor()
-cur.execute('use logindata')
-app.config['MAIL_SERVER'] = 'smtp.qq.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = '719723236@qq.com'
-app.config['MAIL_PASSWORD'] = 'tlwiuoueauapbefb'
-mail = Mail(app)
+# connection = pymysql.connect(host='localhost',  # host属性
+#                              user='root',  # 用户名
+#                              password='mysql',  # 此处填登录数据库的密码
+#                              db='mysql'  # 数据库名
+#                              )
+# cur = connection.cursor()
+# cur.execute('use logindata')
+# app.config['MAIL_SERVER'] = 'smtp.qq.com'
+# app.config['MAIL_PORT'] = 587
+# app.config['MAIL_USE_TLS'] = True
+# app.config['MAIL_USERNAME'] = '719723236@qq.com'
+# app.config['MAIL_PASSWORD'] = 'tlwiuoueauapbefb'
+# mail = Mail(app)
 
 
 
@@ -2609,8 +2609,10 @@ def GN():
     # 删除边以什么顺序
     for i in remove_temp:
         for j in links_data_json:
-            if i[0]-1==int(j['source']) and i[1]-1==int(j['target']):
+            if i[0]-1==int(j['source']) and i[1]-1==int(j['target']) or\
+                i[0]-1==int(j['target']) and i[1]-1==int(j['source']):
                 remove_edge.append(int(j['id']))
+                break
 
     remove_edge=json.dumps(remove_edge)
     return render_template('GN.html', graph_data=graph_data_json,
